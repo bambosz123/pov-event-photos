@@ -3,13 +3,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, RotateCw, Zap, ZapOff, Image as ImageIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import toast from 'react-hot-toast'
 
-export default function CameraCapture({ eventId, tableId, tableName }: any) {
+interface Photo {
+  id: string
+  dataUrl: string
+  timestamp: Date
+}
+
+export default function CameraCapture({ eventId }: any) {
   const [count, setCount] = useState(0)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [flashEnabled, setFlashEnabled] = useState(true)
-  const [lastPhoto, setLastPhoto] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<Photo[]>([])
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -37,7 +42,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       }
     } catch (e) {
       console.error('Camera error:', e)
-      toast.error('Brak dostępu do kamery')
+      alert('Brak dostępu do kamery')
     }
   }
 
@@ -71,10 +76,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
   }
 
   const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) {
-      toast.error('Kamera nie jest gotowa')
-      return
-    }
+    if (!videoRef.current || !canvasRef.current) return
 
     try {
       const video = videoRef.current
@@ -84,10 +86,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       canvas.height = video.videoHeight
 
       const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        toast.error('Błąd przy rysowaniu')
-        return
-      }
+      if (!ctx) return
 
       // Flash dla tylnej kamery
       if (flashEnabled && facingMode === 'environment' && streamRef.current) {
@@ -118,7 +117,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
         }
       }
 
-      // Rysuj obraz z kamery
+      // Rysuj obraz
       if (facingMode === 'user') {
         ctx.scale(-1, 1)
         ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
@@ -126,42 +125,24 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
         ctx.drawImage(video, 0, 0)
       }
 
-      // Dodaj watermark
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-      ctx.font = 'bold 24px Arial'
-      ctx.fillText(tableName, 20, canvas.height - 20)
-      ctx.font = '16px Arial'
-      ctx.fillText(new Date().toLocaleString('pl-PL'), 20, canvas.height - 50)
+      // Konwertuj do Data URL i zapisz
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+      
+      const newPhoto: Photo = {
+        id: `photo_${Date.now()}`,
+        dataUrl,
+        timestamp: new Date()
+      }
 
-      // Konwertuj na JPEG i zapisz lokalnie
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          toast.error('Błąd przy konwersji zdjęcia')
-          return
-        }
+      const updated = [newPhoto, ...photos]
+setPhotos(updated)
+setCount(prev => prev + 1)
 
-        // Utwórz URL dla podglądu
-        const photoUrl = URL.createObjectURL(blob)
-        setLastPhoto(photoUrl)
-
-        // Pobierz zdjęcie automatycznie
-        const link = document.createElement('a')
-        link.href = photoUrl
-        link.download = `foto_${eventId}_${Date.now()}.jpg`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-
-        // Zwiększ licznik
-        const newCount = count + 1
-        setCount(newCount)
-
-        toast.success(`✅ Zdjęcie ${newCount} zrobione!`)
-      }, 'image/jpeg', 0.95)
+// Zapisz w sessionStorage
+sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
 
     } catch (error) {
       console.error('Capture error:', error)
-      toast.error('Błąd przy robieniu zdjęcia')
     }
   }
 
@@ -192,19 +173,19 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => router.back()}
-            className="w-10 h-10 flex items-center justify-center text-white"
+            onClick={() => router.push('/')}
+            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition"
           >
             <X className="w-6 h-6" />
           </button>
           <div className="text-center">
-            <div className="text-white font-semibold">{tableName}</div>
+            <div className="text-white font-semibold">📸 Aparat</div>
             <div className="text-white/70 text-sm">Zdjęć: {count}</div>
           </div>
           {/* Flash button */}
           <button
             onClick={toggleFlash}
-            className="w-10 h-10 flex items-center justify-center text-white"
+            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition"
           >
             {flashEnabled ? (
               <Zap className="w-6 h-6 fill-yellow-400 text-yellow-400" />
@@ -216,12 +197,20 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       </div>
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
-        <div className="flex items-center justify-between px-6">
-          {/* Gallery preview */}
-          <button className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center">
-            {lastPhoto ? (
-              <img src={lastPhoto} alt="Last" className="w-full h-full object-cover" />
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent pb-8 pt-12">
+        <div className="flex items-center justify-between px-6 mb-4">
+          {/* Galeria button */}
+          <button
+            onClick={() => router.push(`/gallery?eventId=${eventId}`)}
+            className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center hover:border-white transition"
+          >
+            {photos.length > 0 ? (
+              <>
+                <img src={photos[0].dataUrl} alt="Last" className="w-full h-full object-cover" />
+                <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs px-2 py-1 rounded-bl font-bold">
+                  {photos.length}
+                </div>
+              </>
             ) : (
               <ImageIcon className="w-6 h-6 text-white/50" />
             )}
@@ -238,15 +227,15 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
           {/* Rotate camera */}
           <button
             onClick={toggleCamera}
-            className="w-12 h-12 flex items-center justify-center text-white bg-black/50 rounded-full border border-white/30"
+            className="w-14 h-14 flex items-center justify-center text-white bg-black/50 rounded-lg border border-white/30 hover:bg-black/70 transition"
           >
             <RotateCw className="w-6 h-6" />
           </button>
         </div>
 
         {/* Info */}
-        <div className="text-center text-white/70 text-sm mt-4">
-          💡 Naciśnij przycisk głośności aby robić zdjęcia
+        <div className="text-center text-white/70 text-sm">
+          💡 Naciśnij przycisk głośności lub kliknij koło
         </div>
       </div>
     </div>

@@ -1,80 +1,137 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { Download, Trash2, ArrowLeft, Image as ImageIcon } from 'lucide-react'
 
-export default function GalleryPage({ params }: { params: { eventId: string } }) {
-  const [photos] = useState([
-    { id: 1, src: 'https://via.placeholder.com/400x300?text=Zdjęcie+1', likes: 12, views: 45 },
-    { id: 2, src: 'https://via.placeholder.com/400x300?text=Zdjęcie+2', likes: 8, views: 32 },
-    { id: 3, src: 'https://via.placeholder.com/400x300?text=Zdjęcie+3', likes: 15, views: 58 },
-    { id: 4, src: 'https://via.placeholder.com/400x300?text=Zdjęcie+4', likes: 5, views: 21 },
-    { id: 5, src: 'https://via.placeholder.com/400x300?text=Zdjęcie+5', likes: 20, views: 72 },
-    { id: 6, src: 'https://via.placeholder.com/400x300?text=Zdjęcie+6', likes: 11, views: 41 },
-  ])
-  const [filter, setFilter] = useState('all')
+interface Photo {
+  id: string
+  dataUrl: string
+  timestamp: Date
+}
+
+export default function GalleryPage() {
+  const [photos, setPhotos] = useState<Photo[]>([])
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const eventId = searchParams.get('eventId') || 'unknown'
+
+  useEffect(() => {
+    // Załaduj zdjęcia z sessionStorage
+    const saved = sessionStorage.getItem(`photos_${eventId}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setPhotos(parsed)
+      } catch (e) {
+        console.error('Error loading photos:', e)
+      }
+    }
+  }, [eventId])
+
+  const downloadPhoto = (photo: Photo) => {
+    const link = document.createElement('a')
+    link.href = photo.dataUrl
+    link.download = `foto_${photo.id}.jpg`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const deletePhoto = (id: string) => {
+    const updated = photos.filter(p => p.id !== id)
+    setPhotos(updated)
+    sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
+  }
+
+  const downloadAll = () => {
+    photos.forEach((photo, index) => {
+      setTimeout(() => {
+        const link = document.createElement('a')
+        link.href = photo.dataUrl
+        link.download = `foto_${index + 1}_${photo.id}.jpg`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }, index * 500)
+    })
+  }
 
   return (
-    <main className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gray-900">
       {/* Header */}
-      <header className="bg-black border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/"
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Powrót
-              </Link>
-              <h1 className="text-3xl font-bold text-white">🖼️ Galeria Live</h1>
-            </div>
-            <div className="text-gray-400 text-sm">
-              {photos.length} zdjęć • 7 osób ogląda 🔴
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            {['all', 'popular', 'newest'].map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-2 rounded-lg font-semibold transition ${
-                  filter === f
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {f === 'all' ? 'Wszystkie' : f === 'popular' ? 'Popularne' : 'Najnowsze'}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {photos.map(photo => (
-            <div
-              key={photo.id}
-              className="relative group bg-gray-800 rounded-lg overflow-hidden cursor-pointer transform hover:scale-105 transition shadow-lg hover:shadow-2xl"
+      <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition"
             >
-              <img
-                src={photo.src}
-                alt="Photo"
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-2">
-                <div className="text-white font-bold text-lg">❤️ {photo.likes}</div>
-                <div className="text-gray-300 text-sm">👁️ {photo.views} views</div>
-              </div>
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">📸 Galeria</h1>
+              <p className="text-blue-100 text-sm">Event: {eventId}</p>
             </div>
-          ))}
+          </div>
+          {photos.length > 0 && (
+            <button
+              onClick={downloadAll}
+              className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition flex items-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              Pobierz wszystko ({photos.length})
+            </button>
+          )}
         </div>
       </div>
-    </main>
+
+      {/* Gallery */}
+      <div className="max-w-6xl mx-auto p-4">
+        {photos.length === 0 ? (
+          <div className="text-center py-16">
+            <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400 text-lg">Brak zdjęć</p>
+            <p className="text-gray-500 text-sm">Wróć do aparatu i zrób zdjęcie</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {photos.map((photo) => (
+              <div key={photo.id} className="bg-gray-800 rounded-lg overflow-hidden hover:shadow-lg transition">
+                <div className="relative aspect-square group">
+                  <img
+                    src={photo.dataUrl}
+                    alt="Photo"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => downloadPhoto(photo)}
+                      className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition"
+                      title="Pobierz"
+                    >
+                      <Download className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => deletePhoto(photo.id)}
+                      className="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition"
+                      title="Usuń"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-700">
+                  <p className="text-white text-sm">{photo.id}</p>
+                  <p className="text-gray-400 text-xs">
+                    {new Date(photo.timestamp).toLocaleString('pl-PL')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
