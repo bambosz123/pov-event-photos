@@ -49,23 +49,12 @@ export default function CameraCapture({ eventId }: any) {
   useEffect(() => {
     startCamera(facingMode)
 
-    // Volume button handling
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'VolumeUp' || e.key === 'VolumeDown') {
-        e.preventDefault()
-        capturePhoto()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
     }
-  }, [facingMode, flashEnabled])
+  }, [facingMode])
 
   const toggleCamera = () => {
     setFacingMode(facingMode === 'user' ? 'environment' : 'user')
@@ -76,7 +65,10 @@ export default function CameraCapture({ eventId }: any) {
   }
 
   const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) return
+    if (!videoRef.current || !canvasRef.current) {
+      console.log('Video or canvas not ready')
+      return
+    }
 
     try {
       const video = videoRef.current
@@ -86,7 +78,10 @@ export default function CameraCapture({ eventId }: any) {
       canvas.height = video.videoHeight
 
       const ctx = canvas.getContext('2d')
-      if (!ctx) return
+      if (!ctx) {
+        console.log('Canvas context not ready')
+        return
+      }
 
       // Flash dla tylnej kamery
       if (flashEnabled && facingMode === 'environment' && streamRef.current) {
@@ -125,7 +120,7 @@ export default function CameraCapture({ eventId }: any) {
         ctx.drawImage(video, 0, 0)
       }
 
-      // Konwertuj do Data URL i zapisz
+      // Konwertuj do Data URL
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
       
       const newPhoto: Photo = {
@@ -137,14 +132,21 @@ export default function CameraCapture({ eventId }: any) {
       // Zaktualizuj state
       const updated = [newPhoto, ...photos]
       setPhotos(updated)
-      setCount(prev => prev + 1)
+      setCount(updated.length)
 
       // ZAPISZ DO sessionStorage
+      console.log('Saving photos to sessionStorage:', updated.length)
       sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
 
     } catch (error) {
       console.error('Capture error:', error)
     }
+  }
+
+  const goToGallery = () => {
+    console.log('Going to gallery, photos:', photos.length)
+    sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(photos))
+    router.push(`/gallery?eventId=${eventId}`)
   }
 
   return (
@@ -202,10 +204,7 @@ export default function CameraCapture({ eventId }: any) {
         <div className="flex items-center justify-between px-6 mb-4">
           {/* Galeria button */}
           <button
-            onClick={() => {
-              sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(photos))
-              router.push(`/gallery?eventId=${eventId}`)
-            }}
+            onClick={goToGallery}
             className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center hover:border-white transition relative"
           >
             {photos.length > 0 ? (
@@ -223,7 +222,7 @@ export default function CameraCapture({ eventId }: any) {
           {/* Capture Button */}
           <button
             onClick={capturePhoto}
-            className="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition"
+            className="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition hover:scale-105"
           >
             <div className="w-16 h-16 rounded-full bg-white" />
           </button>
@@ -239,7 +238,7 @@ export default function CameraCapture({ eventId }: any) {
 
         {/* Info */}
         <div className="text-center text-white/70 text-sm">
-          💡 Naciśnij przycisk głośności lub kliknij koło
+          👆 Kliknij koło by robić zdjęcia
         </div>
       </div>
     </div>
