@@ -10,14 +10,28 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [zoom, setZoom] = useState(1)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
 
   const startCamera = async (mode: 'user' | 'environment') => {
     try {
       console.log('Starting camera with mode:', mode)
+      
+      // Zatrzymaj poprzedni stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: mode } 
+        video: { 
+          facingMode: mode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
       })
+      
+      streamRef.current = stream
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         console.log('Camera started!')
@@ -27,48 +41,72 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
     }
   }
 
+  // Zmień zoom kamery (nie ekranu)
+  const changeZoom = async (newZoom: number) => {
+    setZoom(newZoom)
+    
+    if (streamRef.current) {
+      const videoTrack = streamRef.current.getVideoTracks()[0]
+      const capabilities = videoTrack.getCapabilities() as any
+      
+      if (capabilities.zoom) {
+        try {
+          await videoTrack.applyConstraints({
+            advanced: [{ zoom: newZoom } as any]
+          })
+          console.log('Zoom applied:', newZoom)
+        } catch (e) {
+          console.log('Zoom not supported on this device')
+        }
+      }
+    }
+  }
+
   useEffect(() => {
     startCamera(facingMode)
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-        tracks.forEach(track => track.stop())
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
       }
     }
   }, [facingMode])
 
   const toggleCamera = () => {
     setFacingMode(facingMode === 'user' ? 'environment' : 'user')
+    setZoom(1) // Reset zoom przy zmianie kamery
   }
 
   const capturePhoto = () => {
-    if (flashEnabled) {
-      const flashDiv = document.getElementById('flash-effect')
-      if (flashDiv) {
-        flashDiv.classList.remove('hidden')
-        setTimeout(() => flashDiv.classList.add('hidden'), 200)
-      }
+    // Flash effect
+    const flashDiv = document.getElementById('flash-effect')
+    if (flashDiv) {
+      flashDiv.classList.remove('hidden')
+      setTimeout(() => flashDiv.classList.add('hidden'), 150)
     }
+    
     setCount(count + 1)
   }
 
   return (
     <div className="fixed inset-0 bg-black z-50">
-      {/* Video */}
+      {/* Video - lustro dla przedniej kamery */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: `scale(${zoom})` }}
+        style={{ 
+          transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
+        }}
       />
 
       {/* Flash effect */}
       <div
         id="flash-effect"
-        className="hidden absolute inset-0 bg-white pointer-events-none"
+        className="hidden absolute inset-0 bg-white pointer-events-none opacity-80"
+        style={{ animation: 'flash 0.15s ease-out' }}
       />
 
       {/* Top Bar */}
@@ -92,7 +130,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
         {/* Top controls row */}
         <div className="flex items-center justify-between px-6 mb-6">
-          {/* Flash */}
+          {/* Flash toggle */}
           <button
             onClick={() => setFlashEnabled(!flashEnabled)}
             className="w-12 h-12 flex items-center justify-center text-white"
@@ -104,18 +142,10 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
             )}
           </button>
 
-          {/* Zoom buttons */}
+          {/* Zoom buttons - zmienia zoom kamery */}
           <div className="flex items-center gap-2 bg-black/40 rounded-full px-4 py-2">
             <button
-              onClick={() => setZoom(0.5)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 0.5 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              0.5
-            </button>
-            <button
-              onClick={() => setZoom(1)}
+              onClick={() => changeZoom(1)}
               className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
                 zoom === 1 ? 'text-yellow-400' : 'text-white'
               }`}
@@ -123,12 +153,20 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
               1x
             </button>
             <button
-              onClick={() => setZoom(2)}
+              onClick={() => changeZoom(2)}
               className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
                 zoom === 2 ? 'text-yellow-400' : 'text-white'
               }`}
             >
               2x
+            </button>
+            <button
+              onClick={() => changeZoom(3)}
+              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
+                zoom === 3 ? 'text-yellow-400' : 'text-white'
+              }`}
+            >
+              3x
             </button>
           </div>
 
@@ -151,7 +189,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
           {/* Capture Button */}
           <button
             onClick={capturePhoto}
-            className="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center"
+            className="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition"
           >
             <div className="w-16 h-16 rounded-full bg-white" />
           </button>
@@ -160,6 +198,13 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
           <div className="w-12" />
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes flash {
+          0% { opacity: 0.8; }
+          100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }
