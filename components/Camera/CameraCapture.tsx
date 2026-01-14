@@ -7,34 +7,27 @@ import { useRouter } from 'next/navigation'
 export default function CameraCapture({ eventId, tableId, tableName }: any) {
   const [count, setCount] = useState(0)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
-  const [lensMode, setLensMode] = useState<1 | 0.5>(1) // 1x = wide, 0.5 = ultra-wide
+  const [zoom, setZoom] = useState<number>(1)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
 
-  const startCamera = async (mode: 'user' | 'environment', lens: 1 | 0.5 = 1) => {
+  const startCamera = async (mode: 'user' | 'environment') => {
     try {
-      console.log('Starting camera:', mode, 'lens:', lens)
+      console.log('Starting camera:', mode)
       
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
 
-      // Dla tylnej kamery - wybór między wide i ultra-wide
-      const constraints: any = {
-        video: {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
           facingMode: mode,
           width: { ideal: 1920 },
           height: { ideal: 1080 }
-        }
-      }
-
-      // Ultra-wide dla tylnej kamery
-      if (mode === 'environment' && lens === 0.5) {
-        constraints.video.aspectRatio = { ideal: 16/9 }
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        } 
+      })
+      
       streamRef.current = stream
       
       if (videoRef.current) {
@@ -47,22 +40,23 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
   }
 
   useEffect(() => {
-    startCamera(facingMode, lensMode)
+    startCamera(facingMode)
 
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
     }
-  }, [facingMode, lensMode])
+  }, [facingMode])
 
   const toggleCamera = () => {
     setFacingMode(facingMode === 'user' ? 'environment' : 'user')
-    setLensMode(1) // Reset do 1x przy zmianie kamery
+    setZoom(1) // Reset zoom
   }
 
-  const toggleLens = () => {
-    setLensMode(lensMode === 1 ? 0.5 : 1)
+  const toggleZoom = () => {
+    // Przełącz między 0.5x (oddal) i 1x (normalny)
+    setZoom(zoom === 1 ? 0.5 : 1)
   }
 
   const capturePhoto = async () => {
@@ -73,15 +67,12 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
 
       if (capabilities.torch) {
         try {
-          // Włącz latarkę
           await track.applyConstraints({
             advanced: [{ torch: true }] as any
           })
           
-          // Poczekaj 200ms
           await new Promise(resolve => setTimeout(resolve, 200))
           
-          // Wyłącz latarkę
           await track.applyConstraints({
             advanced: [{ torch: false }] as any
           })
@@ -105,23 +96,22 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
 
   return (
     <div className="fixed inset-0 bg-black z-50">
-      {/* Video - lustro dla przedniej kamery */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300"
         style={{ 
-          transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
+          transform: facingMode === 'user' 
+            ? `scaleX(-1) scale(${zoom})` 
+            : `scale(${zoom})`
         }}
       />
 
-      {/* Flash effect dla przedniej kamery */}
       <div
         id="flash-effect"
         className="hidden absolute inset-0 bg-white pointer-events-none opacity-90"
-        style={{ animation: 'flash 0.15s ease-out' }}
       />
 
       {/* Top Bar */}
@@ -143,14 +133,15 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
 
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
-        {/* Przycisk 1x/0.5x dla tylnej kamery - LEWY GÓRNY */}
+        
+        {/* Przycisk zoom - ŚRODEK GÓRA - tylko dla tylnej */}
         {facingMode === 'environment' && (
-          <div className="absolute left-6 bottom-32">
+          <div className="flex justify-center mb-6">
             <button
-              onClick={toggleLens}
-              className="bg-black/40 rounded-full px-4 py-2 text-white font-semibold text-sm"
+              onClick={toggleZoom}
+              className="bg-black/50 rounded-full px-5 py-2 text-white font-bold text-base border border-white/30 active:scale-95 transition"
             >
-              {lensMode === 1 ? '1x' : '0.5x'}
+              {zoom === 1 ? '1x' : '0.5x'}
             </button>
           </div>
         )}
@@ -170,22 +161,15 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
             <div className="w-16 h-16 rounded-full bg-white" />
           </button>
 
-          {/* Rotate camera - PRAWY DÓŁ */}
+          {/* Rotate camera - PRAWY */}
           <button
             onClick={toggleCamera}
-            className="w-12 h-12 flex items-center justify-center text-white bg-black/40 rounded-full"
+            className="w-12 h-12 flex items-center justify-center text-white bg-black/50 rounded-full border border-white/30"
           >
             <RotateCw className="w-6 h-6" />
           </button>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes flash {
-          0% { opacity: 0.9; }
-          100% { opacity: 0; }
-        }
-      `}</style>
     </div>
   )
 }
