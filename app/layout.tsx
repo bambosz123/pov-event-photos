@@ -9,9 +9,10 @@ export const metadata: Metadata = {
   title: 'POV Event Photos',
   description: 'Share photos from your perspective',
   manifest: '/manifest.json',
-  themeColor: '#0ea5e9',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 }
+
+export const viewport = 'width=device-width, initial-scale=1, maximum-scale=1'
+
 
 export default function RootLayout({
   children,
