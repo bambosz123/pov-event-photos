@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import QRCode from 'qrcode.react'
+import { QRCodeSVG } from 'qrcode.react'
 import { Plus, LogOut, Download, Eye } from 'lucide-react'
 
 interface Event {
@@ -133,7 +133,7 @@ export default function AdminDashboard() {
 
               <div className="p-6">
                 <div className="bg-gray-100 p-4 rounded-lg flex justify-center mb-4" id={`qr-${event.id}`}>
-                  <QRCode 
+                  <QRCodeSVG 
                     value={event.qrCode} 
                     size={256}
                     level="H"
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold mb-4">{selectedEvent.name}</h2>
             <div className="bg-gray-100 p-6 rounded-lg flex justify-center mb-6">
-              <QRCode 
+              <QRCodeSVG
                 value={selectedEvent.qrCode} 
                 size={300}
                 level="H"
