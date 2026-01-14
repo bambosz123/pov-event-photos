@@ -134,12 +134,13 @@ export default function CameraCapture({ eventId }: any) {
         timestamp: new Date()
       }
 
+      // Zaktualizuj state
       const updated = [newPhoto, ...photos]
-setPhotos(updated)
-setCount(prev => prev + 1)
+      setPhotos(updated)
+      setCount(prev => prev + 1)
 
-// Zapisz w sessionStorage
-sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
+      // ZAPISZ DO sessionStorage
+      sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
 
     } catch (error) {
       console.error('Capture error:', error)
@@ -201,8 +202,11 @@ sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
         <div className="flex items-center justify-between px-6 mb-4">
           {/* Galeria button */}
           <button
-            onClick={() => router.push(`/gallery?eventId=${eventId}`)}
-            className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center hover:border-white transition"
+            onClick={() => {
+              sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(photos))
+              router.push(`/gallery?eventId=${eventId}`)
+            }}
+            className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center hover:border-white transition relative"
           >
             {photos.length > 0 ? (
               <>

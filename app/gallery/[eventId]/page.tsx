@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Download, Trash2, ArrowLeft, Image as ImageIcon } from 'lucide-react'
@@ -10,7 +11,7 @@ interface Photo {
   timestamp: Date
 }
 
-export default function GalleryPage() {
+function GalleryContent() {
   const [photos, setPhotos] = useState<Photo[]>([])
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -71,7 +72,7 @@ export default function GalleryPage() {
             </button>
             <div>
               <h1 className="text-2xl font-bold text-white">📸 Galeria</h1>
-              <p className="text-blue-100 text-sm">Event: {eventId}</p>
+              <p className="text-blue-100 text-sm">Zdjęć: {photos.length}</p>
             </div>
           </div>
           {photos.length > 0 && (
@@ -121,17 +122,19 @@ export default function GalleryPage() {
                     </button>
                   </div>
                 </div>
-                <div className="p-3 bg-gray-700">
-                  <p className="text-white text-sm">{photo.id}</p>
-                  <p className="text-gray-400 text-xs">
-                    {new Date(photo.timestamp).toLocaleString('pl-PL')}
-                  </p>
-                </div>
               </div>
             ))}
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+export default function GalleryPage() {
+  return (
+    <Suspense fallback={<div className="w-full h-screen bg-gray-900 flex items-center justify-center text-white">Ładowanie galerii...</div>}>
+      <GalleryContent />
+    </Suspense>
   )
 }
