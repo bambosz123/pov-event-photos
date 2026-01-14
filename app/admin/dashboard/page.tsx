@@ -1,275 +1,206 @@
 'use client'
 
-import { ArrowLeft, X } from 'lucide-react'
-import Link from 'next/link'
-import { useState } from 'react'
-import toast from 'react-hot-toast'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import QRCode from 'qrcode.react'
+import { Plus, LogOut, Download, Eye } from 'lucide-react'
+
+interface Event {
+  id: string
+  name: string
+  createdAt: string
+  qrCode: string
+}
 
 export default function AdminDashboard() {
-  const [showNewEvent, setShowNewEvent] = useState(false)
-  const [showQRGenerator, setShowQRGenerator] = useState(false)
-  const [showReports, setShowReports] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-
+  const [events, setEvents] = useState<Event[]>([])
   const [eventName, setEventName] = useState('')
-  const [eventDate, setEventDate] = useState('')
-  const [numTables, setNumTables] = useState('10')
-  const [autoDelete, setAutoDelete] = useState('7')
+  const [isCreating, setIsCreating] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const router = useRouter()
 
-  const handleCreateEvent = () => {
-    if (!eventName || !eventDate) {
-      toast.error('Uzupełnij wszystkie pola!')
-      return
+  useEffect(() => {
+    const token = localStorage.getItem('admin-token')
+    if (!token) {
+      router.push('/admin')
     }
-    toast.success(`✅ Event "${eventName}" został utworzony!`)
+    
+    const saved = localStorage.getItem('events')
+    if (saved) {
+      setEvents(JSON.parse(saved))
+    }
+  }, [router])
+
+  const createEvent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!eventName.trim()) return
+
+    setIsCreating(true)
+
+    const eventId = `evt_${Date.now()}`
+    const appUrl = `${window.location.origin}/camera?eventId=${eventId}`
+
+    const newEvent: Event = {
+      id: eventId,
+      name: eventName,
+      createdAt: new Date().toLocaleString('pl-PL'),
+      qrCode: appUrl
+    }
+
+    const updatedEvents = [...events, newEvent]
+    setEvents(updatedEvents)
+    localStorage.setItem('events', JSON.stringify(updatedEvents))
+
     setEventName('')
-    setEventDate('')
-    setShowNewEvent(false)
+    setIsCreating(false)
+  }
+
+  const downloadQR = (event: Event) => {
+    const qrElement = document.getElementById(`qr-${event.id}`)
+    if (qrElement) {
+      const svg = qrElement.querySelector('svg')
+      if (svg) {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        const image = new Image()
+        const svgData = new XMLSerializer().serializeToString(svg)
+        const img = new Image()
+        img.onload = () => {
+          canvas.width = img.width
+          canvas.height = img.height
+          ctx?.drawImage(img, 0, 0)
+          const link = document.createElement('a')
+          link.href = canvas.toDataURL()
+          link.download = `qr-${event.name}.png`
+          link.click()
+        }
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
+      }
+    }
+  }
+
+  const logout = () => {
+    localStorage.removeItem('admin-token')
+    router.push('/admin')
   }
 
   return (
-    <main className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-black border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-400 hover:text-white">
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
-            <h1 className="text-3xl font-bold text-white">🔐 Panel Admin</h1>
-          </div>
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">📸 Admin Panel</h1>
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
+          >
+            <LogOut className="w-5 h-5" />
+            Wyloguj się
+          </button>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <div className="text-gray-400 text-sm mb-2">Zdjęć</div>
-            <div className="text-4xl font-bold text-blue-400">1247</div>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <div className="text-gray-400 text-sm mb-2">Eventów</div>
-            <div className="text-4xl font-bold text-green-400">8</div>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <div className="text-gray-400 text-sm mb-2">Użytkowników</div>
-            <div className="text-4xl font-bold text-purple-400">23</div>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4 text-gray-800">Utwórz nowy event</h2>
+          
+          <form onSubmit={createEvent} className="flex gap-3">
+            <input
+              type="text"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              placeholder="Nazwa eventu (np. Wesele Kowalskich)"
+              className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+              disabled={isCreating}
+            />
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition active:scale-95 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Utwórz
+            </button>
+          </form>
         </div>
 
-        {/* Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => setShowNewEvent(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-xl font-bold text-lg"
-          >
-            ➕ Nowy event
-          </button>
-          <button
-            onClick={() => setShowQRGenerator(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-xl font-bold text-lg"
-          >
-            🎫 Generuj QR
-          </button>
-          <button
-            onClick={() => setShowReports(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-xl font-bold text-lg"
-          >
-            📊 Raporty
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-4 rounded-xl font-bold text-lg"
-          >
-            ⚙️ Ustawienia
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {events.map((event) => (
+            <div key={event.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-4">
+                <h3 className="text-xl font-bold text-white">{event.name}</h3>
+                <p className="text-blue-100 text-sm">{event.createdAt}</p>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-gray-100 p-4 rounded-lg flex justify-center mb-4" id={`qr-${event.id}`}>
+                  <QRCode 
+                    value={event.qrCode} 
+                    size={256}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <p className="text-xs text-gray-600 mb-2">URL do aplikacji:</p>
+                  <input
+                    type="text"
+                    value={event.qrCode}
+                    readOnly
+                    className="w-full px-2 py-2 bg-gray-100 text-xs rounded border-none text-gray-700"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => downloadQR(event)}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 transition flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Pobierz QR
+                  </button>
+                  <button
+                    onClick={() => setSelectedEvent(event)}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Podgląd
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
+
+        {events.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-lg">
+            <p className="text-gray-500 text-lg">Brak eventów. Utwórz swój pierwszy event!</p>
+          </div>
+        )}
       </div>
 
-      {/* MODAL: Nowy Event */}
-      {showNewEvent && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl max-w-md w-full p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">➕ Nowy event</h2>
-              <button onClick={() => setShowNewEvent(false)}>
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-4">{selectedEvent.name}</h2>
+            <div className="bg-gray-100 p-6 rounded-lg flex justify-center mb-6">
+              <QRCode 
+                value={selectedEvent.qrCode} 
+                size={300}
+                level="H"
+                includeMargin={true}
+              />
             </div>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                placeholder="Nazwa eventu"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
-              />
-              <input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
-              />
-              <input
-                type="number"
-                value={numTables}
-                onChange={(e) => setNumTables(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowNewEvent(false)}
-                  className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Anuluj
-                </button>
-                <button
-                  onClick={handleCreateEvent}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold"
-                >
-                  Utwórz
-                </button>
-              </div>
-            </div>
+            <p className="text-gray-600 text-sm mb-4 break-all">{selectedEvent.qrCode}</p>
+            <button
+              onClick={() => setSelectedEvent(null)}
+              className="w-full bg-gray-600 text-white px-4 py-2 rounded font-bold hover:bg-gray-700 transition"
+            >
+              Zamknij
+            </button>
           </div>
         </div>
       )}
-
-      {/* MODAL: QR Codes */}
-      {showQRGenerator && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl max-w-md w-full p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">🎫 Generuj QR</h2>
-              <button onClick={() => setShowQRGenerator(false)}>
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <select className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white">
-                <option>Wesele Ania & Piotr</option>
-                <option>Urodziny Marka</option>
-              </select>
-              <input
-                type="number"
-                defaultValue="10"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
-              />
-              <div className="bg-purple-900/30 p-4 rounded-lg border border-purple-700/50">
-                <div className="text-purple-400 font-semibold">QR zawierać będzie:</div>
-                <ul className="text-gray-300 text-sm mt-2 space-y-1">
-                  <li>✓ ID eventu</li>
-                  <li>✓ Numer stolika</li>
-                  <li>✓ Link dostępu</li>
-                </ul>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowQRGenerator(false)}
-                  className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Anuluj
-                </button>
-                <button
-                  onClick={() => {
-                    toast.success('📱 Generowanie QR PDF...')
-                    setShowQRGenerator(false)
-                  }}
-                  className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg font-bold"
-                >
-                  Generuj
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Raporty */}
-      {showReports && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl max-w-md w-full p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">📊 Raporty</h2>
-              <button onClick={() => setShowReports(false)}>
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
-                📈 Aktywność
-              </button>
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
-                👥 Użytkownicy
-              </button>
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
-                💾 Storage
-              </button>
-              <button
-                onClick={() => {
-                  toast.success('📊 Raport wyeksportowany!')
-                  setShowReports(false)
-                }}
-                className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-lg font-bold"
-              >
-                📥 Export Excel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Ustawienia */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl max-w-md w-full p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">⚙️ Ustawienia</h2>
-              <button onClick={() => setShowSettings(false)}>
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-white font-semibold mb-2">Auto-delete po (dni):</label>
-                <input
-                  type="number"
-                  value={autoDelete}
-                  onChange={(e) => setAutoDelete(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
-                />
-              </div>
-              <div className="bg-orange-900/30 p-4 rounded-lg border border-orange-700/50">
-                <div className="text-orange-400 font-semibold">Bieżące ustawienia:</div>
-                <ul className="text-gray-300 text-sm mt-2 space-y-1">
-                  <li>✓ Automatyczne usuwanie zdjęć po {autoDelete} dniach</li>
-                  <li>✓ Max 1000 zdjęć na event</li>
-                  <li>✓ Watermark włączony</li>
-                </ul>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Anuluj
-                </button>
-                <button
-                  onClick={() => {
-                    toast.success('⚙️ Ustawienia zapisane!')
-                    setShowSettings(false)
-                  }}
-                  className="flex-1 bg-orange-600 text-white px-4 py-2 rounded-lg font-bold"
-                >
-                  Zapisz
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
+    </div>
   )
 }
