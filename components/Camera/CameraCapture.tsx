@@ -8,7 +8,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
   const [count, setCount] = useState(0)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [flashEnabled, setFlashEnabled] = useState(false)
-  const [zoom, setZoom] = useState(1)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
@@ -41,27 +40,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
     }
   }
 
-  // Zmień zoom kamery (nie ekranu)
-  const changeZoom = async (newZoom: number) => {
-    setZoom(newZoom)
-    
-    if (streamRef.current) {
-      const videoTrack = streamRef.current.getVideoTracks()[0]
-      const capabilities = videoTrack.getCapabilities() as any
-      
-      if (capabilities.zoom) {
-        try {
-          await videoTrack.applyConstraints({
-            advanced: [{ zoom: newZoom }]
-          })
-          console.log('Zoom applied:', newZoom)
-        } catch (e) {
-          console.log('Zoom not supported on this device')
-        }
-      }
-    }
-  }
-
   useEffect(() => {
     startCamera(facingMode)
 
@@ -74,7 +52,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
 
   const toggleCamera = () => {
     setFacingMode(facingMode === 'user' ? 'environment' : 'user')
-    setZoom(1) // Reset zoom przy zmianie kamery
   }
 
   const capturePhoto = () => {
@@ -129,7 +106,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
         {/* Top controls row */}
-        <div className="flex items-center justify-between px-6 mb-6">
+        <div className="flex items-center justify-center px-6 mb-6 gap-6">
           {/* Flash toggle */}
           <button
             onClick={() => setFlashEnabled(!flashEnabled)}
@@ -141,34 +118,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
               <ZapOff className="w-6 h-6" />
             )}
           </button>
-
-          {/* Zoom buttons - zmienia zoom kamery */}
-          <div className="flex items-center gap-2 bg-black/40 rounded-full px-4 py-2">
-            <button
-              onClick={() => changeZoom(1)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 1 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              1x
-            </button>
-            <button
-              onClick={() => changeZoom(2)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 2 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              2x
-            </button>
-            <button
-              onClick={() => changeZoom(3)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 3 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              3x
-            </button>
-          </div>
 
           {/* Rotate camera */}
           <button
