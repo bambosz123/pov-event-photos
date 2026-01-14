@@ -1,28 +1,66 @@
 'use client'
-import { useState, useRef } from 'react'
-import toast from 'react-hot-toast'
+
+import { useState, useRef, useEffect } from 'react'
 
 export default function CameraCapture({ eventId, tableId, tableName }: any) {
   const [count, setCount] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      if (videoRef.current) videoRef.current.srcObject = stream
-    } catch {
-      toast.error('Brak dostępu do aparatu')
+  useEffect(() => {
+    const startCamera = async () => {
+      try {
+        console.log('Auto-starting camera...')
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          console.log('Camera started automatically!')
+        }
+      } catch (e) {
+        console.error('Camera error:', e)
+      }
     }
-  }
+
+    startCamera()
+
+    // Cleanup - stop camera when leaving page
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
+        tracks.forEach(track => track.stop())
+      }
+    }
+  }, [])
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">📷 Rób zdjęcia - {count}</h2>
-      <video ref={videoRef} className="w-full h-80 bg-black rounded-lg" />
-      <button onClick={startCamera} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">
-        🎥 Włącz aparat
-      </button>
-      <button onClick={() => { setCount(count + 1); toast.success('Zdjęcie!') }} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold">
+    <div style={{ padding: '20px', color: 'white' }}>
+      <h1>📷 Zdjęć: {count}</h1>
+      
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        style={{ 
+          width: '100%', 
+          height: '400px', 
+          backgroundColor: 'black', 
+          marginBottom: '10px',
+          borderRadius: '8px'
+        }}
+      />
+      
+      <button 
+        onClick={() => setCount(count + 1)} 
+        style={{ 
+          padding: '10px 20px', 
+          fontSize: '16px',
+          backgroundColor: '#10b981',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer'
+        }}
+      >
         📸 Zrób zdjęcie
       </button>
     </div>
