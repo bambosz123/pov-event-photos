@@ -40,8 +40,33 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
     }
   }
 
+  // Włącz/wyłącz latarkę LED
+  const toggleFlash = async () => {
+    const newFlashState = !flashEnabled
+    setFlashEnabled(newFlashState)
+
+    if (streamRef.current && facingMode === 'environment') {
+      const track = streamRef.current.getVideoTracks()[0]
+      const capabilities = track.getCapabilities() as any
+
+      if (capabilities.torch) {
+        try {
+          await track.applyConstraints({
+            advanced: [{ torch: newFlashState }] as any
+          })
+          console.log('Torch:', newFlashState ? 'ON' : 'OFF')
+        } catch (e) {
+          console.log('Torch not supported:', e)
+        }
+      } else {
+        console.log('Torch not available on this device')
+      }
+    }
+  }
+
   useEffect(() => {
     startCamera(facingMode)
+    setFlashEnabled(false) // Reset flash przy zmianie kamery
 
     return () => {
       if (streamRef.current) {
@@ -55,13 +80,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
   }
 
   const capturePhoto = () => {
-    // Flash effect
-    const flashDiv = document.getElementById('flash-effect')
-    if (flashDiv) {
-      flashDiv.classList.remove('hidden')
-      setTimeout(() => flashDiv.classList.add('hidden'), 150)
-    }
-    
     setCount(count + 1)
   }
 
@@ -79,13 +97,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
         }}
       />
 
-      {/* Flash effect */}
-      <div
-        id="flash-effect"
-        className="hidden absolute inset-0 bg-white pointer-events-none opacity-80"
-        style={{ animation: 'flash 0.15s ease-out' }}
-      />
-
       {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between">
@@ -99,34 +110,33 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
             <div className="text-white font-semibold">{tableName}</div>
             <div className="text-white/70 text-sm">Zdjęć: {count}</div>
           </div>
-          <div className="w-10" />
+          {/* Rotate camera - PRAWY RÓG */}
+          <button
+            onClick={toggleCamera}
+            className="w-10 h-10 flex items-center justify-center text-white"
+          >
+            <RotateCw className="w-6 h-6" />
+          </button>
         </div>
       </div>
 
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
-        {/* Top controls row */}
-        <div className="flex items-center justify-center px-6 mb-6 gap-6">
-          {/* Flash toggle */}
-          <button
-            onClick={() => setFlashEnabled(!flashEnabled)}
-            className="w-12 h-12 flex items-center justify-center text-white"
-          >
-            {flashEnabled ? (
-              <Zap className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-            ) : (
-              <ZapOff className="w-6 h-6" />
-            )}
-          </button>
-
-          {/* Rotate camera */}
-          <button
-            onClick={toggleCamera}
-            className="w-12 h-12 flex items-center justify-center text-white"
-          >
-            <RotateCw className="w-6 h-6" />
-          </button>
-        </div>
+        {/* Flash button - tylko dla tylnej kamery */}
+        {facingMode === 'environment' && (
+          <div className="flex items-center justify-center px-6 mb-6">
+            <button
+              onClick={toggleFlash}
+              className="w-12 h-12 flex items-center justify-center text-white"
+            >
+              {flashEnabled ? (
+                <Zap className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+              ) : (
+                <ZapOff className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Bottom row - Capture button */}
         <div className="flex items-center justify-center gap-8 px-6">
@@ -147,13 +157,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
           <div className="w-12" />
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes flash {
-          0% { opacity: 0.8; }
-          100% { opacity: 0; }
-        }
-      `}</style>
     </div>
   )
 }
