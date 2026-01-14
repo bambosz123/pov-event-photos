@@ -3,19 +3,21 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, RotateCw, Zap, ZapOff, Image as ImageIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 
 export default function CameraCapture({ eventId, tableId, tableName }: any) {
   const [count, setCount] = useState(0)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [flashEnabled, setFlashEnabled] = useState(true)
+  const [lastPhoto, setLastPhoto] = useState<string | null>(null)
+  
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
 
   const startCamera = async (mode: 'user' | 'environment') => {
     try {
-      console.log('Starting camera:', mode)
-      
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
@@ -32,22 +34,33 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        console.log('Camera started!')
       }
     } catch (e) {
       console.error('Camera error:', e)
+      toast.error('Brak dostępu do kamery')
     }
   }
 
   useEffect(() => {
     startCamera(facingMode)
 
+    // Volume button handling
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'VolumeUp' || e.key === 'VolumeDown') {
+        e.preventDefault()
+        capturePhoto()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
     return () => {
+      window.removeEventListener('keydown', handleKeyDown)
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
     }
-  }, [facingMode])
+  }, [facingMode, flashEnabled])
 
   const toggleCamera = () => {
     setFacingMode(facingMode === 'user' ? 'environment' : 'user')
@@ -58,47 +71,103 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
   }
 
   const capturePhoto = async () => {
-    if (!flashEnabled) {
-      setCount(count + 1)
+    if (!videoRef.current || !canvasRef.current) {
+      toast.error('Kamera nie jest gotowa')
       return
     }
 
-    // Flash dla TYLNEJ kamery (LED latarka)
-    if (facingMode === 'environment' && streamRef.current) {
-      const track = streamRef.current.getVideoTracks()[0]
-      const capabilities = track.getCapabilities() as any
+    try {
+      const video = videoRef.current
+      const canvas = canvasRef.current
 
-      if (capabilities.torch) {
-        try {
-          await track.applyConstraints({
-            advanced: [{ torch: true }] as any
-          })
-          
-          await new Promise(resolve => setTimeout(resolve, 200))
-          
-          await track.applyConstraints({
-            advanced: [{ torch: false }] as any
-          })
-        } catch (e) {
-          console.log('Torch not supported:', e)
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        toast.error('Błąd przy rysowaniu')
+        return
+      }
+
+      // Flash dla tylnej kamery
+      if (flashEnabled && facingMode === 'environment' && streamRef.current) {
+        const track = streamRef.current.getVideoTracks()[0]
+        const capabilities = track.getCapabilities() as any
+
+        if (capabilities.torch) {
+          try {
+            await track.applyConstraints({
+              advanced: [{ torch: true }] as any
+            })
+            await new Promise(resolve => setTimeout(resolve, 200))
+            await track.applyConstraints({
+              advanced: [{ torch: false }] as any
+            })
+          } catch (e) {
+            console.log('Torch not supported')
+          }
         }
       }
-    }
 
-    // Flash dla PRZEDNIEJ kamery (biały ekran)
-    if (facingMode === 'user') {
-      const flashDiv = document.getElementById('flash-effect')
-      if (flashDiv) {
-        flashDiv.classList.remove('hidden')
-        setTimeout(() => flashDiv.classList.add('hidden'), 150)
+      // Flash dla przedniej kamery
+      if (flashEnabled && facingMode === 'user') {
+        const flashDiv = document.getElementById('flash-effect')
+        if (flashDiv) {
+          flashDiv.classList.remove('hidden')
+          setTimeout(() => flashDiv.classList.add('hidden'), 150)
+        }
       }
-    }
 
-    setCount(count + 1)
+      // Rysuj obraz z kamery
+      if (facingMode === 'user') {
+        ctx.scale(-1, 1)
+        ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
+      } else {
+        ctx.drawImage(video, 0, 0)
+      }
+
+      // Dodaj watermark
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+      ctx.font = 'bold 24px Arial'
+      ctx.fillText(tableName, 20, canvas.height - 20)
+      ctx.font = '16px Arial'
+      ctx.fillText(new Date().toLocaleString('pl-PL'), 20, canvas.height - 50)
+
+      // Konwertuj na JPEG i zapisz lokalnie
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          toast.error('Błąd przy konwersji zdjęcia')
+          return
+        }
+
+        // Utwórz URL dla podglądu
+        const photoUrl = URL.createObjectURL(blob)
+        setLastPhoto(photoUrl)
+
+        // Pobierz zdjęcie automatycznie
+        const link = document.createElement('a')
+        link.href = photoUrl
+        link.download = `foto_${eventId}_${Date.now()}.jpg`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // Zwiększ licznik
+        const newCount = count + 1
+        setCount(newCount)
+
+        toast.success(`✅ Zdjęcie ${newCount} zrobione!`)
+      }, 'image/jpeg', 0.95)
+
+    } catch (error) {
+      console.error('Capture error:', error)
+      toast.error('Błąd przy robieniu zdjęcia')
+    }
   }
 
   return (
     <div className="fixed inset-0 bg-black z-50">
+      {/* Video */}
       <video
         ref={videoRef}
         autoPlay
@@ -110,6 +179,10 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
         }}
       />
 
+      {/* Canvas - hidden */}
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Flash effect */}
       <div
         id="flash-effect"
         className="hidden absolute inset-0 bg-white pointer-events-none opacity-90"
@@ -147,7 +220,11 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
         <div className="flex items-center justify-between px-6">
           {/* Gallery preview */}
           <button className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center">
-            <ImageIcon className="w-6 h-6 text-white/50" />
+            {lastPhoto ? (
+              <img src={lastPhoto} alt="Last" className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="w-6 h-6 text-white/50" />
+            )}
           </button>
 
           {/* Capture Button */}
@@ -165,6 +242,11 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
           >
             <RotateCw className="w-6 h-6" />
           </button>
+        </div>
+
+        {/* Info */}
+        <div className="text-center text-white/70 text-sm mt-4">
+          💡 Naciśnij przycisk głośności aby robić zdjęcia
         </div>
       </div>
     </div>
