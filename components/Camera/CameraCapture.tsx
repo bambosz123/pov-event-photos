@@ -52,7 +52,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: any) {
       if (capabilities.zoom) {
         try {
           await videoTrack.applyConstraints({
-            advanced: [{ zoom: newZoom } as any]
+            advanced: [{ zoom: newZoom }]
           })
           console.log('Zoom applied:', newZoom)
         } catch (e) {
