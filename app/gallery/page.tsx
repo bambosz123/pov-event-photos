@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Trash2, Image as ImageIcon, Lock, Loader2, Heart, Flame, Laugh, Clap } from 'lucide-react'
+import { ArrowLeft, Trash2, Image as ImageIcon, Lock, Loader2, Heart, Flame, Smile, ThumbsUp } from 'lucide-react'
 import { supabase, Photo } from '@/lib/supabase'
 
 export default function GalleryPage() {
