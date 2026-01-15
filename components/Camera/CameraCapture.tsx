@@ -5,7 +5,7 @@ import { X, RotateCw, Image as ImageIcon, Zap, ZapOff, AlertCircle, Sparkles } f
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const PHOTO_LIMIT = 20
+const PHOTO_LIMIT = 35
 
 const FILTERS = [
   { id: 'none', name: '✨ Brak', style: '' },
@@ -18,19 +18,8 @@ const FILTERS = [
   { id: 'rio', name: '🇧🇷 Rio', style: 'saturate(1.6) contrast(1.2) brightness(1.15) hue-rotate(10deg)' },
 ]
 
-const OVERLAYS = [
-  { id: 'none', name: 'Brak', emoji: '❌' },
-  { id: 'dog', name: 'Pies 🐶', emoji: '🐶' },
-  { id: 'crown', name: 'Korona 👑', emoji: '👑' },
-  { id: 'fire', name: 'Ogień 🔥', emoji: '🔥' },
-  { id: 'heart', name: 'Serca 💕', emoji: '💕' },
-  { id: 'star', name: 'Gwiazdy ⭐', emoji: '⭐' },
-  { id: 'sunglasses', name: 'Okulary 😎', emoji: '😎' },
-  { id: 'rainbow', name: 'Tęcza 🌈', emoji: '🌈' },
-]
-
 export default function CameraCapture() {
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [photoCount, setPhotoCount] = useState(0)
   const [uploadedCount, setUploadedCount] = useState(0)
   const [lastPhotoUrl, setLastPhotoUrl] = useState('')
@@ -40,7 +29,6 @@ export default function CameraCapture() {
   const [showLimitWarning, setShowLimitWarning] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [selectedFilter, setSelectedFilter] = useState('none')
-  const [selectedOverlay, setSelectedOverlay] = useState('none')
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -103,11 +91,15 @@ export default function CameraCapture() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
       })
+      
       streamRef.current = stream
-      if (videoRef.current) videoRef.current.srcObject = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
 
       if (flashEnabled && facingMode === 'environment') {
         applyFlash(true)
@@ -155,10 +147,7 @@ export default function CameraCapture() {
 
     const now = Date.now()
     
-    if (now - lastCaptureTime.current < 300) {
-      console.warn('⚠️ Za szybko!')
-      return
-    }
+    if (now - lastCaptureTime.current < 300) return
 
     if (isCapturingRef.current || !videoRef.current || !canvasRef.current || !eventId) return
     
@@ -168,6 +157,7 @@ export default function CameraCapture() {
     
     const canvas = canvasRef.current
     const video = videoRef.current
+    
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
@@ -176,40 +166,13 @@ export default function CameraCapture() {
       return
     }
 
-    // Narysuj video
     ctx.drawImage(video, 0, 0)
     
-    // Zastosuj filtr
     const filter = FILTERS.find(f => f.id === selectedFilter)
     if (filter && filter.style) {
       ctx.filter = filter.style
       ctx.drawImage(canvas, 0, 0)
       ctx.filter = 'none'
-    }
-
-    // Dodaj overlay
-    if (selectedOverlay !== 'none') {
-      const overlay = OVERLAYS.find(o => o.id === selectedOverlay)
-      if (overlay) {
-        ctx.font = `${canvas.height / 4}px Arial`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        
-        // Różne pozycje dla różnych overlays
-        if (selectedOverlay === 'dog' || selectedOverlay === 'crown' || selectedOverlay === 'sunglasses') {
-          // Nad głową (góra obrazu)
-          ctx.fillText(overlay.emoji, canvas.width / 2, canvas.height / 5)
-        } else if (selectedOverlay === 'fire' || selectedOverlay === 'heart') {
-          // Wokół (4 rogi)
-          ctx.fillText(overlay.emoji, canvas.width * 0.2, canvas.height * 0.2)
-          ctx.fillText(overlay.emoji, canvas.width * 0.8, canvas.height * 0.2)
-          ctx.fillText(overlay.emoji, canvas.width * 0.2, canvas.height * 0.8)
-          ctx.fillText(overlay.emoji, canvas.width * 0.8, canvas.height * 0.8)
-        } else {
-          // Centrum
-          ctx.fillText(overlay.emoji, canvas.width / 2, canvas.height / 2)
-        }
-      }
     }
     
     const photoData = canvas.toDataURL('image/jpeg', 0.9)
@@ -250,36 +213,14 @@ export default function CameraCapture() {
         playsInline 
         muted 
         className="absolute inset-0 w-full h-full object-cover" 
-        style={{ filter: currentFilter?.style }}
+        style={{ 
+          filter: currentFilter?.style, 
+          transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)' 
+        }}
       />
+      
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* OVERLAY PREVIEW */}
-      {selectedOverlay !== 'none' && (
-        <div className="absolute inset-0 pointer-events-none">
-          {(() => {
-            const overlay = OVERLAYS.find(o => o.id === selectedOverlay)
-            if (!overlay) return null
-            
-            if (selectedOverlay === 'dog' || selectedOverlay === 'crown' || selectedOverlay === 'sunglasses') {
-              return <div className="absolute top-[15%] left-1/2 -translate-x-1/2 text-9xl">{overlay.emoji}</div>
-            } else if (selectedOverlay === 'fire' || selectedOverlay === 'heart') {
-              return (
-                <>
-                  <div className="absolute top-[15%] left-[15%] text-6xl">{overlay.emoji}</div>
-                  <div className="absolute top-[15%] right-[15%] text-6xl">{overlay.emoji}</div>
-                  <div className="absolute bottom-[25%] left-[15%] text-6xl">{overlay.emoji}</div>
-                  <div className="absolute bottom-[25%] right-[15%] text-6xl">{overlay.emoji}</div>
-                </>
-              )
-            } else {
-              return <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-9xl">{overlay.emoji}</div>
-            }
-          })()}
-        </div>
-      )}
-
-      {/* OSTRZEŻENIE O LIMICIE */}
       {showLimitWarning && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-red-600 text-white px-8 py-6 rounded-2xl shadow-2xl animate-pulse">
           <div className="flex items-center gap-3">
@@ -292,7 +233,6 @@ export default function CameraCapture() {
         </div>
       )}
 
-      {/* HEADER */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between">
           <button onClick={() => router.push('/')} className="text-white w-10 h-10 flex items-center justify-center">
@@ -318,9 +258,8 @@ export default function CameraCapture() {
         </div>
       </div>
 
-      {/* FILTRY PANEL */}
       {showFilters && (
-        <div className="absolute left-0 right-0 bottom-32 z-20 bg-black/80 backdrop-blur-sm p-4">
+        <div className="absolute left-0 right-0 bottom-32 z-20 bg-black/80 backdrop-blur-sm p-4 max-h-48 overflow-y-auto">
           <h3 className="text-white text-sm font-bold mb-3">🎨 Filtry:</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {FILTERS.map(filter => (
@@ -337,27 +276,9 @@ export default function CameraCapture() {
               </button>
             ))}
           </div>
-
-          <h3 className="text-white text-sm font-bold mb-3 mt-4">✨ Nakładki:</h3>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {OVERLAYS.map(overlay => (
-              <button
-                key={overlay.id}
-                onClick={() => setSelectedOverlay(overlay.id)}
-                className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-semibold transition ${
-                  selectedOverlay === overlay.id
-                    ? 'bg-pink-600 text-white'
-                    : 'bg-white/20 text-white'
-                }`}
-              >
-                {overlay.name}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
-      {/* BOTTOM CONTROLS */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
         <div className="flex items-center justify-center gap-8 px-6">
           <button onClick={() => router.push('/gallery')} className="w-14 h-14 rounded-lg border-2 border-white/50 bg-gray-800 flex items-center justify-center">
@@ -381,7 +302,6 @@ export default function CameraCapture() {
           </button>
         </div>
 
-        {/* PRZYCISK FILTRÓW */}
         <div className="flex justify-center mt-4">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -392,7 +312,6 @@ export default function CameraCapture() {
           </button>
         </div>
 
-        {/* OSTRZEŻENIE */}
         {photosLeft <= 5 && photosLeft > 0 && (
           <div className="text-center mt-4">
             <p className="text-yellow-400 text-sm font-bold">
