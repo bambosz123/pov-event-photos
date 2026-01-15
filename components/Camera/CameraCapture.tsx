@@ -21,7 +21,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [flashEnabled, setFlashEnabled] = useState(false)
-  const [zoom, setZoom] = useState(1)
   const [isCapturing, setIsCapturing] = useState(false)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [photoCount, setPhotoCount] = useState(0)
@@ -54,6 +53,22 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
     }
   }, [facingMode])
 
+  // ✅ OBSŁUGA PRZYCISKU GŁOŚNOŚCI
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Przyciski głośności mają kody: VolumeUp, VolumeDown, AudioVolumeUp, AudioVolumeDown
+      if (e.key === 'VolumeUp' || e.key === 'VolumeDown' || 
+          e.key === 'AudioVolumeUp' || e.key === 'AudioVolumeDown' ||
+          e.code === 'VolumeUp' || e.code === 'VolumeDown') {
+        e.preventDefault()
+        capturePhoto()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isCapturing, videoRef, canvasRef, photos])
+
   const startCamera = async () => {
     try {
       if (stream) {
@@ -82,6 +97,48 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
+  }
+
+  const toggleFlash = () => {
+    setFlashEnabled(prev => !prev)
+  }
+
+  // ✅ FOCUS NA DOTYK EKRANU
+  const handleScreenTap = async (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!videoRef.current || !stream) return
+
+    const video = videoRef.current
+    const rect = video.getBoundingClientRect()
+    const x = (e.touches[0].clientX - rect.left) / rect.width
+    const y = (e.touches[0].clientY - rect.top) / rect.height
+
+    // Pokaż animację focus
+    const focusRing = document.getElementById('focus-ring')
+    if (focusRing) {
+      focusRing.style.left = `${e.touches[0].clientX}px`
+      focusRing.style.top = `${e.touches[0].clientY}px`
+      focusRing.classList.remove('hidden')
+      focusRing.classList.add('animate-focus')
+      
+      setTimeout(() => {
+        focusRing.classList.add('hidden')
+        focusRing.classList.remove('animate-focus')
+      }, 1000)
+    }
+
+    // Ustaw focus na urządzeniu (jeśli obsługiwane)
+    try {
+      const track = stream.getVideoTracks()[0]
+      const capabilities = track.getCapabilities()
+      
+      if ('focusMode' in capabilities) {
+        await track.applyConstraints({
+          advanced: [{ focusMode: 'single-shot' } as any]
+        })
+      }
+    } catch (err) {
+      console.log('Focus not supported:', err)
+    }
   }
 
   const capturePhoto = async () => {
@@ -137,7 +194,6 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
   }
 
   const goToGallery = () => {
-    // Zapisz zdjęcia przed przejściem
     sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(photos))
     router.push(`/gallery?eventId=${eventId}`)
   }
@@ -146,15 +202,19 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
 
   return (
     <div className="fixed inset-0 bg-black z-50">
-      {/* Video stream */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: `scale(${zoom})` }}
-      />
+      {/* Video stream - DOTYK = FOCUS */}
+      <div 
+        onTouchStart={handleScreenTap}
+        className="absolute inset-0"
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      </div>
 
       {/* Canvas - hidden */}
       <canvas ref={canvasRef} className="hidden" />
@@ -165,11 +225,18 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
         className="hidden absolute inset-0 bg-white pointer-events-none"
       />
 
+      {/* Focus ring */}
+      <div
+        id="focus-ring"
+        className="hidden absolute w-20 h-20 border-2 border-yellow-400 rounded-full pointer-events-none"
+        style={{ transform: 'translate(-50%, -50%)' }}
+      />
+
       {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/')}
             className="w-10 h-10 flex items-center justify-center text-white"
           >
             <X className="w-6 h-6" />
@@ -178,18 +245,9 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
             <div className="text-white font-semibold">{tableName}</div>
             <div className="text-white/70 text-sm">{photoCount} zdjęć</div>
           </div>
-          <div className="w-10" />
-        </div>
-      </div>
-
-      {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
-        {/* Top controls row */}
-        <div className="flex items-center justify-between px-6 mb-6">
-          {/* Flash */}
           <button
-            onClick={() => setFlashEnabled(!flashEnabled)}
-            className="w-12 h-12 flex items-center justify-center text-white"
+            onClick={toggleFlash}
+            className="w-10 h-10 flex items-center justify-center text-white"
           >
             {flashEnabled ? (
               <Zap className="w-6 h-6 fill-yellow-400 text-yellow-400" />
@@ -197,45 +255,11 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
               <ZapOff className="w-6 h-6" />
             )}
           </button>
-
-          {/* Zoom buttons */}
-          <div className="flex items-center gap-2 bg-black/40 rounded-full px-4 py-2">
-            <button
-              onClick={() => setZoom(0.5)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 0.5 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              0.5
-            </button>
-            <button
-              onClick={() => setZoom(1)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 1 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              1x
-            </button>
-            <button
-              onClick={() => setZoom(2)}
-              className={`px-3 py-1 text-sm font-semibold rounded-full transition ${
-                zoom === 2 ? 'text-yellow-400' : 'text-white'
-              }`}
-            >
-              2x
-            </button>
-          </div>
-
-          {/* Rotate camera */}
-          <button
-            onClick={toggleCamera}
-            className="w-12 h-12 flex items-center justify-center text-white"
-          >
-            <RotateCw className="w-6 h-6" />
-          </button>
         </div>
+      </div>
 
-        {/* Bottom row - Capture button */}
+      {/* Bottom Controls */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
         <div className="flex items-center justify-center gap-8 px-6">
           {/* Gallery preview - KLIKALNE */}
           <button 
@@ -268,10 +292,21 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
             )}
           </button>
 
-          {/* Spacer */}
-          <div className="w-14" />
+          {/* Rotate camera */}
+          <button
+            onClick={toggleCamera}
+            className="w-14 h-14 flex items-center justify-center text-white bg-black/50 rounded-lg border border-white/30 hover:bg-black/70 transition"
+          >
+            <RotateCw className="w-6 h-6" />
+          </button>
+        </div>
+        
+        {/* Hint */}
+        <div className="text-center text-white/70 text-sm mt-4">
+          Naciśnij głośność lub dotknij ekranu
         </div>
       </div>
     </div>
   )
 }
+
