@@ -16,9 +16,7 @@ export default function GalleryPage() {
     setDeviceId(myDeviceId)
     loadPhotos()
 
-    // Real-time subscription
-    const channel = supabase
-      .channel('photos-changes')
+   
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
