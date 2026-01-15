@@ -1,15 +1,20 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Camera, X, RotateCw, Zap, ZapOff, Clock, Image as ImageIcon } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
-import toast from 'react-hot-toast'
+import { X, RotateCw, Zap, ZapOff, Image as ImageIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 
 interface CameraCaptureProps {
   eventId: string
   tableId: string
   tableName: string
+}
+
+interface Photo {
+  id: string
+  dataUrl: string
+  timestamp: Date
 }
 
 export default function CameraCapture({ eventId, tableId, tableName }: CameraCaptureProps) {
@@ -18,16 +23,28 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [isCapturing, setIsCapturing] = useState(false)
-  const [lastPhoto, setLastPhoto] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<Photo[]>([])
+  const [photoCount, setPhotoCount] = useState(0)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
   const router = useRouter()
 
+  // Załaduj zdjęcia z sessionStorage
+  useEffect(() => {
+    const saved = sessionStorage.getItem(`photos_${eventId}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setPhotos(parsed)
+        setPhotoCount(parsed.length)
+      } catch (e) {
+        console.error('Error loading photos:', e)
+      }
+    }
+  }, [eventId])
+
+  // Uruchom kamerę
   useEffect(() => {
     startCamera()
     return () => {
@@ -93,48 +110,39 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
 
       ctx.drawImage(video, 0, 0)
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+      
+      const newPhoto: Photo = {
+        id: `photo_${Date.now()}`,
+        dataUrl,
+        timestamp: new Date()
+      }
 
-        const fileName = `${eventId}_${tableId}_${Date.now()}.jpg`
+      // Dodaj do listy
+      const updated = [newPhoto, ...photos]
+      setPhotos(updated)
+      setPhotoCount(updated.length)
 
-        const { error: uploadError } = await supabase.storage
-          .from('event-photos')
-          .upload(fileName, blob, {
-            contentType: 'image/jpeg',
-            cacheControl: '3600'
-          })
+      // Zapisz do sessionStorage
+      sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
 
-        if (uploadError) {
-          throw uploadError
-        }
-
-        const { error: dbError } = await supabase
-          .from('photos')
-          .insert({
-            event_id: eventId,
-            table_id: tableId,
-            file_path: fileName,
-            uploaded_by: tableId
-          })
-
-        if (dbError) {
-          throw dbError
-        }
-
-        const photoUrl = URL.createObjectURL(blob)
-        setLastPhoto(photoUrl)
-
-        toast.success('✅ Zdjęcie zapisane!')
-      }, 'image/jpeg', 0.9)
+      toast.success('✅ Zdjęcie zapisane!')
 
     } catch (error) {
-      console.error('Upload error:', error)
+      console.error('Capture error:', error)
       toast.error('Błąd podczas zapisywania')
     } finally {
       setIsCapturing(false)
     }
   }
+
+  const goToGallery = () => {
+    // Zapisz zdjęcia przed przejściem
+    sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(photos))
+    router.push(`/gallery?eventId=${eventId}`)
+  }
+
+  const lastPhoto = photos.length > 0 ? photos[0] : null
 
   return (
     <div className="fixed inset-0 bg-black z-50">
@@ -145,15 +153,16 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
         playsInline
         muted
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: `scale(${zoom}) ${facingMode === 'user' ? 'scaleX(-1)' : ''}` }}
+        style={{ transform: `scale(${zoom})` }}
       />
 
+      {/* Canvas - hidden */}
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Flash effect */}
       <div
         id="flash-effect"
-        className="hidden absolute inset-0 bg-white pointer-events-none animate-flash"
+        className="hidden absolute inset-0 bg-white pointer-events-none"
       />
 
       {/* Top Bar */}
@@ -167,10 +176,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
           </button>
           <div className="text-center">
             <div className="text-white font-semibold">{tableName}</div>
-            <div className="text-white/70 text-sm flex items-center justify-center gap-1">
-              <Clock className="w-3 h-3" />
-              {new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-            </div>
+            <div className="text-white/70 text-sm">{photoCount} zdjęć</div>
           </div>
           <div className="w-10" />
         </div>
@@ -178,6 +184,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
 
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
+        {/* Top controls row */}
         <div className="flex items-center justify-between px-6 mb-6">
           {/* Flash */}
           <button
@@ -230,10 +237,20 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
 
         {/* Bottom row - Capture button */}
         <div className="flex items-center justify-center gap-8 px-6">
-          {/* Gallery preview */}
-          <button className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center">
+          {/* Gallery preview - KLIKALNE */}
+          <button 
+            onClick={goToGallery}
+            className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center hover:border-white transition relative"
+          >
             {lastPhoto ? (
-              <img src={lastPhoto} alt="Last" className="w-full h-full object-cover" />
+              <>
+                <img src={lastPhoto.dataUrl} alt="Last" className="w-full h-full object-cover" />
+                {photoCount > 1 && (
+                  <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs font-bold px-1.5 py-0.5 rounded">
+                    {photoCount}
+                  </div>
+                )}
+              </>
             ) : (
               <ImageIcon className="w-6 h-6 text-white/50" />
             )}
@@ -252,7 +269,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
           </button>
 
           {/* Spacer */}
-          <div className="w-12" />
+          <div className="w-14" />
         </div>
       </div>
     </div>
