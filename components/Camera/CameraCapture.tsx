@@ -1,27 +1,24 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, RotateCw, Image as ImageIcon } from 'lucide-react'
+import { X, RotateCw, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-
-interface Photo {
-  id: string
-  dataUrl: string
-  deviceId: string
-  timestamp: number
-}
+import { supabase } from '@/lib/supabase'
 
 export default function CameraCapture() {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
-  const [photos, setPhotos] = useState<Photo[]>([])
+  const [photoCount, setPhotoCount] = useState(0)
+  const [lastPhotoUrl, setLastPhotoUrl] = useState('')
   const [deviceId, setDeviceId] = useState('')
+  const [eventId, setEventId] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    // Pobierz lub stwórz unikalny ID urządzenia
+    // Pobierz lub stwórz ID urządzenia
     let myDeviceId = localStorage.getItem('device_id')
     if (!myDeviceId) {
       myDeviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -29,13 +26,8 @@ export default function CameraCapture() {
     }
     setDeviceId(myDeviceId)
 
-    // Załaduj zdjęcia
-    const saved = sessionStorage.getItem('event_photos')
-    if (saved) {
-      try {
-        setPhotos(JSON.parse(saved))
-      } catch (e) {}
-    }
+    // Pobierz aktywny event
+    loadActiveEvent()
   }, [])
 
   useEffect(() => {
@@ -46,6 +38,29 @@ export default function CameraCapture() {
       }
     }
   }, [facingMode])
+
+  const loadActiveEvent = async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('is_active', true)
+      .single()
+
+    if (error || !data) {
+      console.error('No active event found')
+      return
+    }
+
+    setEventId(data.id)
+
+    // Policz zdjęcia dla tego eventu
+    const { count } = await supabase
+      .from('photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', data.id)
+    
+    setPhotoCount(count || 0)
+  }
 
   const startCamera = async () => {
     try {
@@ -63,27 +78,62 @@ export default function CameraCapture() {
     }
   }
 
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return
-    const canvas = canvasRef.current
-    const video = videoRef.current
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(video, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+  const capturePhoto = async () => {
+    if (!videoRef.current || !canvasRef.current || isUploading || !eventId) return
     
-    const newPhoto: Photo = { 
-      id: `photo_${Date.now()}`, 
-      dataUrl,
-      deviceId: deviceId,
-      timestamp: Date.now()
+    setIsUploading(true)
+    
+    try {
+      const canvas = canvasRef.current
+      const video = videoRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      ctx.drawImage(video, 0, 0)
+      
+      // Konwertuj do blob
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9)
+      })
+
+      // Upload do Supabase Storage (bucket "photos")
+      const fileName = `${eventId}/${deviceId}_${Date.now()}.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600'
+        })
+
+      if (uploadError) throw uploadError
+
+      // Zapisz metadata do bazy
+      const { error: dbError } = await supabase
+        .from('photos')
+        .insert({
+          event_id: eventId,
+          storage_path: fileName,
+          device_id: deviceId
+        })
+
+      if (dbError) throw dbError
+
+      // Pobierz URL zdjęcia
+      const { data } = supabase.storage
+        .from('photos')
+        .getPublicUrl(fileName)
+
+      setLastPhotoUrl(data.publicUrl)
+      setPhotoCount(prev => prev + 1)
+      
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert('Błąd podczas zapisywania zdjęcia')
+    } finally {
+      setIsUploading(false)
     }
-    
-    const updated = [newPhoto, ...photos]
-    setPhotos(updated)
-    sessionStorage.setItem('event_photos', JSON.stringify(updated))
   }
 
   return (
@@ -98,7 +148,7 @@ export default function CameraCapture() {
           </button>
           <div className="text-white text-center">
             <div className="font-semibold">📸 Aparat</div>
-            <div className="text-sm text-white/70">Zdjęć: {photos.length}</div>
+            <div className="text-sm text-white/70">Zdjęć: {photoCount}</div>
           </div>
           <div className="w-10" />
         </div>
@@ -107,21 +157,35 @@ export default function CameraCapture() {
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
         <div className="flex items-center justify-center gap-8 px-6">
           <button onClick={() => router.push('/gallery')} className="w-14 h-14 rounded-lg border-2 border-white/50 bg-gray-800 flex items-center justify-center">
-            {photos[0] ? (
-              <img src={photos[0].dataUrl} className="w-full h-full object-cover rounded-lg" alt="Last" />
+            {lastPhotoUrl ? (
+              <img src={lastPhotoUrl} className="w-full h-full object-cover rounded-lg" alt="Last" />
             ) : (
               <ImageIcon className="w-6 h-6 text-white/50" />
             )}
           </button>
 
-          <button onClick={capturePhoto} className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center">
-            <div className="w-16 h-16 rounded-full bg-white" />
+          <button 
+            onClick={capturePhoto} 
+            disabled={isUploading || !eventId}
+            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center disabled:opacity-50"
+          >
+            {isUploading ? (
+              <Loader2 className="w-8 h-8 text-white animate-spin" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-white" />
+            )}
           </button>
 
           <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} className="w-14 h-14 flex items-center justify-center text-white bg-black/50 rounded-lg">
             <RotateCw className="w-6 h-6" />
           </button>
         </div>
+        
+        {isUploading && (
+          <div className="text-center mt-4 text-white text-sm">
+            Zapisywanie zdjęcia...
+          </div>
+        )}
       </div>
     </div>
   )
