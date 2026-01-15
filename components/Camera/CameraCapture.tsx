@@ -167,7 +167,7 @@ export default function CameraCapture() {
           <button 
             onClick={capturePhoto} 
             disabled={isUploading || !eventId}
-            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center disabled:opacity-50"
+            
           >
             {isUploading ? (
               <Loader2 className="w-8 h-8 text-white animate-spin" />
