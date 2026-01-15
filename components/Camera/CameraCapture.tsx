@@ -7,17 +7,29 @@ import { useRouter } from 'next/navigation'
 interface Photo {
   id: string
   dataUrl: string
+  deviceId: string
+  timestamp: number
 }
 
 export default function CameraCapture() {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [photos, setPhotos] = useState<Photo[]>([])
+  const [deviceId, setDeviceId] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
 
   useEffect(() => {
+    // Pobierz lub stwórz unikalny ID urządzenia
+    let myDeviceId = localStorage.getItem('device_id')
+    if (!myDeviceId) {
+      myDeviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('device_id', myDeviceId)
+    }
+    setDeviceId(myDeviceId)
+
+    // Załaduj zdjęcia
     const saved = sessionStorage.getItem('event_photos')
     if (saved) {
       try {
@@ -61,7 +73,14 @@ export default function CameraCapture() {
     if (!ctx) return
     ctx.drawImage(video, 0, 0)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
-    const newPhoto = { id: `photo_${Date.now()}`, dataUrl }
+    
+    const newPhoto: Photo = { 
+      id: `photo_${Date.now()}`, 
+      dataUrl,
+      deviceId: deviceId,
+      timestamp: Date.now()
+    }
+    
     const updated = [newPhoto, ...photos]
     setPhotos(updated)
     sessionStorage.setItem('event_photos', JSON.stringify(updated))
