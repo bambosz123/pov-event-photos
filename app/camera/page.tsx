@@ -1,23 +1,20 @@
 'use client'
 
 import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import CameraGallery from '@/components/Camera/CameraGallery'
 
-interface CameraGalleryProps {
-  eventId: string
-}
+function CameraContent() {
+  const searchParams = useSearchParams()
+  const eventId = searchParams.get('eventId') || 'event'
 
-function CameraGallery({ eventId }: CameraGalleryProps) {
-  return (
-    <div className="w-full h-screen bg-gray-900 flex items-center justify-center text-white">
-      <p>Camera Gallery for event: {eventId}</p>
-    </div>
-  )
+  return <CameraGallery eventId={eventId} />
 }
 
 export default function CameraPage() {
   return (
     <Suspense fallback={<div className="w-full h-screen bg-gray-900 flex items-center justify-center text-white">Ładowanie...</div>}>
-      <CameraGallery eventId="default" />
+      <CameraContent />
     </Suspense>
   )
 }
