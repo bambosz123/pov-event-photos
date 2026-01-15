@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Download, Trash2, ArrowLeft, Image as ImageIcon } from 'lucide-react'
 
 interface Photo {
@@ -12,13 +12,10 @@ interface Photo {
 
 function GalleryContent() {
   const [photos, setPhotos] = useState<Photo[]>([])
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const eventId = searchParams.get('eventId') || 'default-event'
 
   useEffect(() => {
-    // Załaduj zdjęcia z sessionStorage
-    const saved = sessionStorage.getItem(`photos_${eventId}`)
+    const saved = sessionStorage.getItem('event_photos')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
@@ -27,7 +24,7 @@ function GalleryContent() {
         console.error('Error loading photos:', e)
       }
     }
-  }, [eventId])
+  }, [])
 
   const downloadPhoto = (photo: Photo) => {
     const link = document.createElement('a')
@@ -41,7 +38,7 @@ function GalleryContent() {
   const deletePhoto = (id: string) => {
     const updated = photos.filter(p => p.id !== id)
     setPhotos(updated)
-    sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
+    sessionStorage.setItem('event_photos', JSON.stringify(updated))
   }
 
   const downloadAll = () => {
@@ -59,12 +56,11 @@ function GalleryContent() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-4 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/camera')}
               className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition"
             >
               <ArrowLeft className="w-6 h-6" />
@@ -86,7 +82,6 @@ function GalleryContent() {
         </div>
       </div>
 
-      {/* Gallery */}
       <div className="max-w-6xl mx-auto p-4">
         {photos.length === 0 ? (
           <div className="text-center py-16">
@@ -108,14 +103,12 @@ function GalleryContent() {
                     <button
                       onClick={() => downloadPhoto(photo)}
                       className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition"
-                      title="Pobierz"
                     >
                       <Download className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => deletePhoto(photo.id)}
                       className="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition"
-                      title="Usuń"
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>

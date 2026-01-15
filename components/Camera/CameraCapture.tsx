@@ -5,19 +5,15 @@ import { X, RotateCw, Zap, ZapOff, Image as ImageIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
-interface CameraCaptureProps {
-  eventId: string
-  tableId: string
-  tableName: string
-}
-
 interface Photo {
   id: string
   dataUrl: string
   timestamp: Date
 }
 
-export default function CameraCapture({ eventId, tableId, tableName }: CameraCaptureProps) {
+const MAX_PHOTOS_PER_SESSION = 20
+
+export default function CameraCapture() {
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -29,9 +25,9 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const router = useRouter()
 
-  // Załaduj zdjęcia z sessionStorage
+  // Załaduj zdjęcia
   useEffect(() => {
-    const saved = sessionStorage.getItem(`photos_${eventId}`)
+    const saved = sessionStorage.getItem('event_photos')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
@@ -41,7 +37,7 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
         console.error('Error loading photos:', e)
       }
     }
-  }, [eventId])
+  }, [])
 
   // Uruchom kamerę
   useEffect(() => {
@@ -53,21 +49,36 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
     }
   }, [facingMode])
 
-  // ✅ OBSŁUGA PRZYCISKU GŁOŚNOŚCI
+  // Przyciski głośności
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Przyciski głośności mają kody: VolumeUp, VolumeDown, AudioVolumeUp, AudioVolumeDown
-      if (e.key === 'VolumeUp' || e.key === 'VolumeDown' || 
-          e.key === 'AudioVolumeUp' || e.key === 'AudioVolumeDown' ||
-          e.code === 'VolumeUp' || e.code === 'VolumeDown') {
+    const handleVolumeButton = (e: KeyboardEvent) => {
+      const volumeKeys = [
+        'VolumeUp', 'VolumeDown', 
+        'AudioVolumeUp', 'AudioVolumeDown',
+        'MediaVolumeUp', 'MediaVolumeDown'
+      ]
+
+      if (volumeKeys.includes(e.key) || volumeKeys.includes(e.code)) {
         e.preventDefault()
+        e.stopPropagation()
+        
+        if (photoCount >= MAX_PHOTOS_PER_SESSION) {
+          toast.error(`Osiągnięto limit ${MAX_PHOTOS_PER_SESSION} zdjęć!`)
+          return
+        }
+        
         capturePhoto()
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isCapturing, videoRef, canvasRef, photos])
+    window.addEventListener('keydown', handleVolumeButton, { capture: true })
+    window.addEventListener('keyup', handleVolumeButton, { capture: true })
+
+    return () => {
+      window.removeEventListener('keydown', handleVolumeButton, { capture: true })
+      window.removeEventListener('keyup', handleVolumeButton, { capture: true })
+    }
+  }, [isCapturing, photoCount, photos])
 
   const startCamera = async () => {
     try {
@@ -103,16 +114,16 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
     setFlashEnabled(prev => !prev)
   }
 
-  // ✅ FOCUS NA DOTYK EKRANU
+  // Tap-to-Focus
   const handleScreenTap = async (e: React.TouchEvent<HTMLDivElement>) => {
     if (!videoRef.current || !stream) return
 
     const video = videoRef.current
     const rect = video.getBoundingClientRect()
+    
     const x = (e.touches[0].clientX - rect.left) / rect.width
     const y = (e.touches[0].clientY - rect.top) / rect.height
 
-    // Pokaż animację focus
     const focusRing = document.getElementById('focus-ring')
     if (focusRing) {
       focusRing.style.left = `${e.touches[0].clientX}px`
@@ -126,23 +137,46 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
       }, 1000)
     }
 
-    // Ustaw focus na urządzeniu (jeśli obsługiwane)
     try {
       const track = stream.getVideoTracks()[0]
-      const capabilities = track.getCapabilities()
-      
-      if ('focusMode' in capabilities) {
-        await track.applyConstraints({
-          advanced: [{ focusMode: 'single-shot' } as any]
+      const capabilities = track.getCapabilities() as any
+
+      const constraints: any = { advanced: [] }
+
+      if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+        constraints.advanced.push({ focusMode: 'continuous' })
+      }
+
+      if ('pointsOfInterest' in capabilities) {
+        constraints.advanced.push({
+          pointsOfInterest: [{ x, y }]
         })
       }
+
+      if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) {
+        constraints.advanced.push({ exposureMode: 'continuous' })
+      }
+
+      if (constraints.advanced.length > 0) {
+        await track.applyConstraints(constraints)
+      }
+
+      toast.success('Ostrość ustawiona', { duration: 1000 })
     } catch (err) {
-      console.log('Focus not supported:', err)
+      console.log('Focus/Exposure not fully supported:', err)
     }
   }
 
   const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current || isCapturing) return
+
+    if (photoCount >= MAX_PHOTOS_PER_SESSION) {
+      toast.error(`Osiągnięto limit ${MAX_PHOTOS_PER_SESSION} zdjęć na sesję!`, {
+        duration: 3000,
+        icon: '🚫'
+      })
+      return
+    }
 
     setIsCapturing(true)
 
@@ -154,9 +188,10 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
       canvas.height = video.videoHeight
 
       const ctx = canvas.getContext('2d')
-      if (!ctx) return
+      if (!ctx) {
+        throw new Error('Cannot get canvas context')
+      }
 
-      // Flash effect
       if (flashEnabled) {
         const flashDiv = document.getElementById('flash-effect')
         if (flashDiv) {
@@ -175,37 +210,40 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
         timestamp: new Date()
       }
 
-      // Dodaj do listy
       const updated = [newPhoto, ...photos]
       setPhotos(updated)
       setPhotoCount(updated.length)
 
-      // Zapisz do sessionStorage
-      sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(updated))
+      sessionStorage.setItem('event_photos', JSON.stringify(updated))
 
-      toast.success('✅ Zdjęcie zapisane!')
+      const remaining = MAX_PHOTOS_PER_SESSION - updated.length
+      if (remaining <= 3 && remaining > 0) {
+        toast.success(`✅ Zapisano! Pozostało ${remaining} zdjęć`)
+      } else {
+        toast.success('✅ Zdjęcie zapisane!')
+      }
 
     } catch (error) {
       console.error('Capture error:', error)
-      toast.error('Błąd podczas zapisywania')
+      toast.error('Błąd podczas zapisywania zdjęcia')
     } finally {
       setIsCapturing(false)
     }
   }
 
   const goToGallery = () => {
-    sessionStorage.setItem(`photos_${eventId}`, JSON.stringify(photos))
-    router.push(`/gallery?eventId=${eventId}`)
+    sessionStorage.setItem('event_photos', JSON.stringify(photos))
+    router.push('/gallery')
   }
 
   const lastPhoto = photos.length > 0 ? photos[0] : null
+  const remaining = MAX_PHOTOS_PER_SESSION - photoCount
 
   return (
     <div className="fixed inset-0 bg-black z-50">
-      {/* Video stream - DOTYK = FOCUS */}
       <div 
         onTouchStart={handleScreenTap}
-        className="absolute inset-0"
+        className="absolute inset-0 touch-none"
       >
         <video
           ref={videoRef}
@@ -216,38 +254,36 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
         />
       </div>
 
-      {/* Canvas - hidden */}
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Flash effect */}
       <div
         id="flash-effect"
         className="hidden absolute inset-0 bg-white pointer-events-none"
       />
 
-      {/* Focus ring */}
       <div
         id="focus-ring"
         className="hidden absolute w-20 h-20 border-2 border-yellow-400 rounded-full pointer-events-none"
         style={{ transform: 'translate(-50%, -50%)' }}
       />
 
-      {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
-            className="w-10 h-10 flex items-center justify-center text-white"
+            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition"
           >
             <X className="w-6 h-6" />
           </button>
           <div className="text-center">
-            <div className="text-white font-semibold">{tableName}</div>
-            <div className="text-white/70 text-sm">{photoCount} zdjęć</div>
+            <div className="text-white font-semibold">📸 Event Photos</div>
+            <div className="text-white/70 text-sm">
+              {photoCount}/{MAX_PHOTOS_PER_SESSION} • Pozostało: {remaining}
+            </div>
           </div>
           <button
             onClick={toggleFlash}
-            className="w-10 h-10 flex items-center justify-center text-white"
+            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition"
           >
             {flashEnabled ? (
               <Zap className="w-6 h-6 fill-yellow-400 text-yellow-400" />
@@ -258,10 +294,8 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
         </div>
       </div>
 
-      {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent pb-8 pt-6">
         <div className="flex items-center justify-center gap-8 px-6">
-          {/* Gallery preview - KLIKALNE */}
           <button 
             onClick={goToGallery}
             className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/50 bg-gray-800 flex items-center justify-center hover:border-white transition relative"
@@ -280,19 +314,22 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
             )}
           </button>
 
-          {/* Capture Button */}
           <button
             onClick={capturePhoto}
-            disabled={isCapturing}
-            className="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center disabled:opacity-50"
+            disabled={isCapturing || photoCount >= MAX_PHOTOS_PER_SESSION}
+            className="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center disabled:opacity-50 disabled:border-red-500"
           >
             <div className="w-16 h-16 rounded-full bg-white" />
             {isCapturing && (
               <div className="absolute inset-0 rounded-full border-4 border-blue-500 animate-ping" />
             )}
+            {photoCount >= MAX_PHOTOS_PER_SESSION && (
+              <div className="absolute inset-0 flex items-center justify-center bg-red-500/80 rounded-full">
+                <span className="text-white text-xs font-bold">MAX</span>
+              </div>
+            )}
           </button>
 
-          {/* Rotate camera */}
           <button
             onClick={toggleCamera}
             className="w-14 h-14 flex items-center justify-center text-white bg-black/50 rounded-lg border border-white/30 hover:bg-black/70 transition"
@@ -301,12 +338,10 @@ export default function CameraCapture({ eventId, tableId, tableName }: CameraCap
           </button>
         </div>
         
-        {/* Hint */}
         <div className="text-center text-white/70 text-sm mt-4">
-          Naciśnij głośność lub dotknij ekranu
+          Dotknij ekran aby ustawić ostrość • Użyj głośności do zdjęć
         </div>
       </div>
     </div>
   )
 }
-
