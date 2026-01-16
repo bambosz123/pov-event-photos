@@ -39,6 +39,7 @@ export default function CameraPage() {
   const [mounted, setMounted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -113,6 +114,55 @@ export default function CameraPage() {
   const switchCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
   }
+const handleFocus = async (e: React.MouseEvent<HTMLDivElement>) => {
+  if (!streamRef.current || !videoRef.current) return
+
+  const rect = videoRef.current.getBoundingClientRect()
+  const x = ((e.clientX - rect.left) / rect.width) * 100
+  const y = ((e.clientY - rect.top) / rect.height) * 100
+
+  // Pokaż animację focusa
+  setFocusPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+  setTimeout(() => setFocusPoint(null), 1000)
+
+  // Ustaw focus w kamerze
+  const videoTrack = streamRef.current.getVideoTracks()[0]
+  const capabilities = videoTrack.getCapabilities() as any
+
+  if (capabilities.focusMode && capabilities.focusMode.includes('manual')) {
+    try {
+      await videoTrack.applyConstraints({
+        advanced: [{
+          focusMode: 'manual',
+          focusDistance: 0.5
+        }] as any
+      })
+    } catch (err) {
+      console.log('Manual focus not supported')
+    }
+  }
+
+  // Spróbuj auto-focus w tym punkcie
+  if (capabilities.focusMode && capabilities.focusMode.includes('single-shot')) {
+    try {
+      await videoTrack.applyConstraints({
+        advanced: [{
+          focusMode: 'single-shot',
+          pointsOfInterest: [{ x: x / 100, y: y / 100 }]
+        }] as any
+      })
+    } catch (err) {
+      console.log('Focus point not supported, using continuous auto-focus')
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ focusMode: 'continuous' }] as any
+        })
+      } catch (err2) {
+        console.log('Auto-focus not available')
+      }
+    }
+  }
+}
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return
