@@ -39,7 +39,7 @@ export default function CameraPage() {
   const [mounted, setMounted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
-const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null)
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -114,55 +114,59 @@ const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(nu
   const switchCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
   }
-const handleFocus = async (e: React.MouseEvent<HTMLDivElement>) => {
-  if (!streamRef.current || !videoRef.current) return
 
-  const rect = videoRef.current.getBoundingClientRect()
-  const x = ((e.clientX - rect.left) / rect.width) * 100
-  const y = ((e.clientY - rect.top) / rect.height) * 100
+  const handleFocus = async (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (!streamRef.current || !videoRef.current) return
 
-  // Pokaż animację focusa
-  setFocusPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-  setTimeout(() => setFocusPoint(null), 1000)
-
-  // Ustaw focus w kamerze
-  const videoTrack = streamRef.current.getVideoTracks()[0]
-  const capabilities = videoTrack.getCapabilities() as any
-
-  if (capabilities.focusMode && capabilities.focusMode.includes('manual')) {
-    try {
-      await videoTrack.applyConstraints({
-        advanced: [{
-          focusMode: 'manual',
-          focusDistance: 0.5
-        }] as any
-      })
-    } catch (err) {
-      console.log('Manual focus not supported')
+    const rect = videoRef.current.getBoundingClientRect()
+    
+    // Obsługa zarówno myszy jak i touch
+    let clientX: number, clientY: number
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
+    } else {
+      clientX = e.clientX
+      clientY = e.clientY
     }
-  }
 
-  // Spróbuj auto-focus w tym punkcie
-  if (capabilities.focusMode && capabilities.focusMode.includes('single-shot')) {
-    try {
-      await videoTrack.applyConstraints({
-        advanced: [{
-          focusMode: 'single-shot',
-          pointsOfInterest: [{ x: x / 100, y: y / 100 }]
-        }] as any
-      })
-    } catch (err) {
-      console.log('Focus point not supported, using continuous auto-focus')
+    const x = ((clientX - rect.left) / rect.width) * 100
+    const y = ((clientY - rect.top) / rect.height) * 100
+
+    // Pokaż animację focusa
+    setFocusPoint({ x: clientX - rect.left, y: clientY - rect.top })
+    setTimeout(() => setFocusPoint(null), 1000)
+
+    // Ustaw focus w kamerze
+    const videoTrack = streamRef.current.getVideoTracks()[0]
+    const capabilities = videoTrack.getCapabilities() as any
+
+    // Spróbuj single-shot autofocus
+    if (capabilities.focusMode && capabilities.focusMode.includes('single-shot')) {
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{
+            focusMode: 'single-shot',
+            pointsOfInterest: [{ x: x / 100, y: y / 100 }]
+          }] as any
+        })
+        return
+      } catch (err) {
+        console.log('Single-shot focus failed')
+      }
+    }
+
+    // Fallback - continuous autofocus
+    if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
       try {
         await videoTrack.applyConstraints({
           advanced: [{ focusMode: 'continuous' }] as any
         })
-      } catch (err2) {
-        console.log('Auto-focus not available')
+      } catch (err) {
+        console.log('Continuous focus failed')
       }
     }
   }
-}
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return
@@ -285,7 +289,12 @@ const handleFocus = async (e: React.MouseEvent<HTMLDivElement>) => {
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       <div className="relative w-full h-screen">
-        <div className="absolute inset-0 overflow-hidden">
+        {/* VIDEO Z TAP-TO-FOCUS */}
+        <div 
+          className="absolute inset-0 overflow-hidden"
+          onClick={handleFocus}
+          onTouchStart={handleFocus}
+        >
           <video
             ref={videoRef}
             autoPlay
@@ -294,6 +303,30 @@ const handleFocus = async (e: React.MouseEvent<HTMLDivElement>) => {
             className="w-full h-full object-cover"
             style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
           />
+          
+          {/* Focus indicator - animowany okrąg */}
+          {focusPoint && (
+            <div
+              className="absolute pointer-events-none z-30"
+              style={{
+                left: focusPoint.x,
+                top: focusPoint.y,
+                transform: 'translate(-50%, -50%)'
+              }}
+            >
+              <div className="relative">
+                {/* Zewnętrzny pierścień */}
+                <div className="w-20 h-20 border-2 border-white rounded-full animate-focus-ring"></div>
+                {/* Wewnętrzny pierścień */}
+                <div className="absolute inset-0 w-20 h-20 border-2 border-yellow-400 rounded-full animate-focus-pulse"></div>
+                {/* Krzyżyk */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-0.5 h-5 bg-white"></div>
+                  <div className="absolute w-5 h-0.5 bg-white"></div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         <canvas ref={canvasRef} className="hidden" />
@@ -473,6 +506,36 @@ const handleFocus = async (e: React.MouseEvent<HTMLDivElement>) => {
         
         button:active {
           transform: scale(0.95);
+        }
+        
+        @keyframes focus-ring {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.8);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes focus-pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(0.85);
+          }
+        }
+        
+        .animate-focus-ring {
+          animation: focus-ring 1s ease-out;
+        }
+        
+        .animate-focus-pulse {
+          animation: focus-pulse 0.6s ease-in-out;
         }
       `}</style>
     </div>

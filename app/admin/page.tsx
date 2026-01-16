@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import QRCode from 'qrcode'
 import { 
   ArrowLeft, 
   Plus, 
@@ -16,13 +17,14 @@ import {
   Shield,
   Activity,
   TrendingUp,
-  X,  // <-- DODANE
+  X,
   Check,
   Star,
   Lock,
   Eye,
   EyeOff,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from 'lucide-react'
 
 import { supabase, Photo } from '@/lib/supabase'
@@ -60,6 +62,8 @@ export default function AdminPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [selectedEventForPhotos, setSelectedEventForPhotos] = useState<string | null>(null)
   const [deletingAll, setDeletingAll] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
+  const [showQrModal, setShowQrModal] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -80,19 +84,18 @@ export default function AdminPage() {
   }, [isAuthenticated])
 
   const handleLogin = () => {
-  console.log('Attempting login with password:', password) // Debug
-  console.log('Expected password:', ADMIN_PASSWORD) // Debug
-  
-  if (password.trim() === ADMIN_PASSWORD) {
-    setIsAuthenticated(true)
-    localStorage.setItem('admin_auth', 'true')
-    setPassword('')
-  } else {
-    alert('❌ Nieprawidłowe hasło!')
-    setPassword('')
+    console.log('Attempting login with password:', password)
+    console.log('Expected password:', ADMIN_PASSWORD)
+    
+    if (password.trim() === ADMIN_PASSWORD) {
+      setIsAuthenticated(true)
+      localStorage.setItem('admin_auth', 'true')
+      setPassword('')
+    } else {
+      alert('❌ Nieprawidłowe hasło!')
+      setPassword('')
+    }
   }
-}
-
 
   const handleLogout = () => {
     setIsAuthenticated(false)
@@ -179,7 +182,6 @@ export default function AdminPage() {
     }
   }
 
-  // NOWA FUNKCJA - Usuń wszystkie zdjęcia
   const deleteAllPhotos = async () => {
     const confirmFirst = confirm(
       `⚠️ WARNING: This will delete ALL ${stats.totalPhotos} photos permanently!\n\nAre you absolutely sure?`
@@ -194,7 +196,6 @@ export default function AdminPage() {
     setDeletingAll(true)
 
     try {
-      // 1. Pobierz wszystkie zdjęcia
       const { data: allPhotos, error: fetchError } = await supabase
         .from('photos')
         .select('storage_path')
@@ -207,7 +208,6 @@ export default function AdminPage() {
         return
       }
 
-      // 2. Usuń z storage (batch delete)
       const storagePaths = allPhotos.map(p => p.storage_path)
       const { error: storageError } = await supabase.storage
         .from('photos')
@@ -215,20 +215,17 @@ export default function AdminPage() {
 
       if (storageError) {
         console.error('Storage delete error:', storageError)
-        // Kontynuuj mimo błędu storage
       }
 
-      // 3. Usuń wszystkie z bazy danych
       const { error: dbError } = await supabase
         .from('photos')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+        .neq('id', '00000000-0000-0000-0000-000000000000')
 
       if (dbError) throw dbError
 
       alert(`✅ Successfully deleted ${allPhotos.length} photos!`)
       
-      // Odśwież dane
       setSelectedEventForPhotos(null)
       setPhotos([])
       loadStats()
@@ -240,6 +237,36 @@ export default function AdminPage() {
     } finally {
       setDeletingAll(false)
     }
+  }
+
+  const generateQRCode = async () => {
+    try {
+      const appUrl = window.location.origin
+      
+      const qrDataUrl = await QRCode.toDataURL(appUrl, {
+        width: 512,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      })
+      
+      setQrCodeUrl(qrDataUrl)
+      setShowQrModal(true)
+    } catch (err) {
+      console.error('QR generation error:', err)
+      alert('Błąd generowania QR kodu')
+    }
+  }
+
+  const downloadQRCode = () => {
+    if (!qrCodeUrl) return
+    
+    const link = document.createElement('a')
+    link.href = qrCodeUrl
+    link.download = 'event-gallery-qr.png'
+    link.click()
   }
 
   const createEvent = async () => {
@@ -326,72 +353,68 @@ export default function AdminPage() {
     return data.publicUrl
   }
 
-  // Login Screen
-if (!isAuthenticated) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-6 relative">
-      
-      {/* Przycisk X - powrót */}
-      <button
-        onClick={() => router.push('/')}
-        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-600/80 backdrop-blur-xl text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-slate-600/50"
-      >
-        <X className="w-5 h-5 text-white" strokeWidth={2.5} />
-      </button>
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-6 relative">
+        
+        <button
+          onClick={() => router.push('/')}
+          className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-600/80 backdrop-blur-xl text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-slate-600/50"
+        >
+          <X className="w-5 h-5 text-white" strokeWidth={2.5} />
+        </button>
 
-      <div className="max-w-md w-full">
-        <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-8 sm:p-12 rounded-[32px] border border-slate-600/50 shadow-[0_16px_64px_rgba(15,23,42,0.6)]">
-          <div className="text-center mb-8">
-            <div className="inline-block bg-gradient-to-br from-slate-600 to-slate-700 p-4 rounded-2xl mb-4">
-              <Shield className="w-12 h-12 text-white" strokeWidth={2} />
+        <div className="max-w-md w-full">
+          <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-8 sm:p-12 rounded-[32px] border border-slate-600/50 shadow-[0_16px_64px_rgba(15,23,42,0.6)]">
+            <div className="text-center mb-8">
+              <div className="inline-block bg-gradient-to-br from-slate-600 to-slate-700 p-4 rounded-2xl mb-4">
+                <Shield className="w-12 h-12 text-white" strokeWidth={2} />
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
+              <p className="text-slate-400 text-sm">Enter password to continue</p>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
-            <p className="text-slate-400 text-sm">Enter password to continue</p>
-          </div>
 
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleLogin()
-                  }
-                }}
-                placeholder="Enter admin password"
-                autoComplete="off"
-                className="w-full bg-slate-800/50 border border-slate-600/50 text-white px-5 py-4 rounded-2xl focus:outline-none focus:border-slate-400/70 focus:ring-2 focus:ring-slate-400/20 transition-all duration-300 placeholder:text-slate-500 pr-12"
-              />
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleLogin()
+                    }
+                  }}
+                  placeholder="Enter admin password"
+                  autoComplete="off"
+                  className="w-full bg-slate-800/50 border border-slate-600/50 text-white px-5 py-4 rounded-2xl focus:outline-none focus:border-slate-400/70 focus:ring-2 focus:ring-slate-400/20 transition-all duration-300 placeholder:text-slate-500 pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+                onClick={handleLogin}
+                className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 active:from-slate-400 active:to-slate-500 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-[0_0_40px_rgba(100,116,139,0.4)] hover:shadow-[0_0_60px_rgba(148,163,184,0.6)] transition-all duration-500 active:scale-95"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                <Lock className="w-5 h-5 inline mr-2" />
+                Login
               </button>
             </div>
-
-            <button
-              onClick={handleLogin}
-              className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 active:from-slate-400 active:to-slate-500 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-[0_0_40px_rgba(100,116,139,0.4)] hover:shadow-[0_0_60px_rgba(148,163,184,0.6)] transition-all duration-500 active:scale-95"
-            >
-              <Lock className="w-5 h-5 inline mr-2" />
-              Login
-            </button>
-          </div>
-          
-          {/* Hint */}
-          <div className="mt-6 text-center">
-            <p className="text-slate-500 text-xs">Hasło: studniowka2026</p>
+            
+            <div className="mt-6 text-center">
+              <p className="text-slate-500 text-xs">Hasło: studniowka2026</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
+    )
+  }
 
   if (loading) {
     return (
@@ -406,16 +429,13 @@ if (!isAuthenticated) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] relative overflow-hidden">
-      {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-gradient-to-br from-slate-400/6 to-transparent rounded-full blur-[100px] animate-float"></div>
         <div className="absolute bottom-[20%] right-[15%] w-[600px] h-[600px] bg-gradient-to-br from-blue-400/5 to-transparent rounded-full blur-[120px] animate-float-delayed"></div>
       </div>
 
-      {/* Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(203,213,225,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(203,213,225,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
 
-      {/* Header */}
       <div className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-700/50 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between gap-3">
@@ -450,13 +470,10 @@ if (!isAuthenticated) {
         </div>
       </div>
 
-      {/* Zawartość */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
         
-        {/* Stats Dashboard */}
         <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-10 lg:mb-12 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           
-          {/* Total Photos */}
           <div className="group relative">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/15 to-blue-700/10 rounded-2xl sm:rounded-3xl blur-xl"></div>
             <div className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-slate-600/40 shadow-[0_8px_32px_rgba(15,23,42,0.4)]">
@@ -471,7 +488,6 @@ if (!isAuthenticated) {
             </div>
           </div>
 
-          {/* Total Events */}
           <div className="group relative">
             <div className="absolute inset-0 bg-gradient-to-r from-slate-500/15 to-slate-600/10 rounded-2xl sm:rounded-3xl blur-xl"></div>
             <div className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-slate-600/40 shadow-[0_8px_32px_rgba(15,23,42,0.4)]">
@@ -486,7 +502,6 @@ if (!isAuthenticated) {
             </div>
           </div>
 
-          {/* Active Event */}
           <div className="group relative col-span-2 lg:col-span-1">
             <div className="absolute inset-0 bg-gradient-to-r from-slate-400/15 to-slate-500/10 rounded-2xl sm:rounded-3xl blur-xl"></div>
             <div className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-slate-600/40 shadow-[0_8px_32px_rgba(15,23,42,0.4)]">
@@ -501,7 +516,6 @@ if (!isAuthenticated) {
             </div>
           </div>
 
-          {/* Today's Photos */}
           <div className="group relative col-span-2 lg:col-span-1">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/15 to-slate-500/10 rounded-2xl sm:rounded-3xl blur-xl"></div>
             <div className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-slate-600/40 shadow-[0_8px_32px_rgba(15,23,42,0.4)]">
@@ -515,9 +529,24 @@ if (!isAuthenticated) {
               <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.todayPhotos}</p>
             </div>
           </div>
+
+          {/* QR CODE GENERATOR */}
+          <div className="group relative col-span-2 lg:col-span-4">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/15 to-slate-500/10 rounded-2xl sm:rounded-3xl blur-xl"></div>
+            <div className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-slate-600/40 shadow-[0_8px_32px_rgba(15,23,42,0.4)]">
+              <button
+                onClick={generateQRCode}
+                className="w-full bg-gradient-to-r from-blue-600 to-slate-600 hover:from-blue-500 hover:to-slate-500 active:from-blue-400 active:to-slate-400 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-[0_0_40px_rgba(59,130,246,0.4)] hover:shadow-[0_0_60px_rgba(59,130,246,0.6)] transition-all duration-500 active:scale-95 flex items-center justify-center gap-3"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+                <span>Generuj QR Code</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* DANGER ZONE - Delete All Photos */}
         {stats.totalPhotos > 0 && (
           <div className={`mb-8 sm:mb-10 lg:mb-12 transition-all duration-700 delay-75 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
             <div className="relative group">
@@ -560,7 +589,6 @@ if (!isAuthenticated) {
           </div>
         )}
 
-        {/* Create New Event */}
         <div className={`mb-8 sm:mb-10 lg:mb-12 transition-all duration-700 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-slate-500/10 to-blue-500/10 rounded-2xl sm:rounded-3xl blur-xl"></div>
@@ -599,7 +627,6 @@ if (!isAuthenticated) {
           </div>
         </div>
 
-        {/* Events List */}
         <div className={`transition-all duration-700 delay-200 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div className="flex items-center gap-2 sm:gap-3 mb-5 sm:mb-6">
             <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400" strokeWidth={2} />
@@ -755,6 +782,58 @@ if (!isAuthenticated) {
           )}
         </div>
       </div>
+
+      {/* QR CODE MODAL */}
+      {showQrModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-2xl rounded-3xl border border-slate-600/50 shadow-[0_16px_64px_rgba(15,23,42,0.8)] max-w-lg w-full p-6 sm:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-600 to-slate-600 p-2.5 rounded-xl">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">QR Code</h2>
+              </div>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="bg-slate-700/50 hover:bg-slate-600/50 p-2 rounded-xl transition-all active:scale-95"
+              >
+                <X className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="bg-white p-6 sm:p-8 rounded-2xl mb-6">
+              <img 
+                src={qrCodeUrl} 
+                alt="QR Code" 
+                className="w-full h-auto"
+              />
+            </div>
+
+            <p className="text-slate-400 text-sm text-center mb-6">
+              Zeskanuj kod QR aby otworzyć galerię zdjęć
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="flex-1 bg-slate-700/50 hover:bg-slate-600/50 text-white px-6 py-3 rounded-xl font-semibold transition-all active:scale-95 min-h-[48px]"
+              >
+                Zamknij
+              </button>
+              <button
+                onClick={downloadQRCode}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-slate-600 hover:from-blue-500 hover:to-slate-500 text-white px-6 py-3 rounded-xl font-semibold shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all active:scale-95 flex items-center justify-center gap-2 min-h-[48px]"
+              >
+                <Download className="w-5 h-5" strokeWidth={2.5} />
+                <span>Pobierz</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
