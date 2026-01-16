@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Trash2, Image as ImageIcon, Lock, X, ZoomIn, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, Trash2, Image as ImageIcon, Lock, X, ChevronLeft, ChevronRight, Star } from 'lucide-react'
 import { supabase, Photo } from '@/lib/supabase'
 import PendingUploader from '@/components/PendingUploader'
 
@@ -10,9 +10,11 @@ export default function GalleryPage() {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [deviceId, setDeviceId] = useState('')
   const [loading, setLoading] = useState(true)
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
 
   useEffect(() => {
     const myDeviceId = localStorage.getItem('device_id') || ''
@@ -77,6 +79,7 @@ export default function GalleryPage() {
         .eq('id', photo.id)
 
       loadPhotos()
+      setSelectedIndex(null)
     }
   }
 
@@ -91,6 +94,45 @@ export default function GalleryPage() {
   }
 
   const canDelete = (photo: Photo) => photo.device_id === deviceId
+
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return
+    
+    const distance = touchStartX.current - touchEndX.current
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe && selectedIndex !== null && selectedIndex < photos.length - 1) {
+      setSelectedIndex(selectedIndex + 1)
+    }
+    if (isRightSwipe && selectedIndex !== null && selectedIndex > 0) {
+      setSelectedIndex(selectedIndex - 1)
+    }
+
+    touchStartX.current = 0
+    touchEndX.current = 0
+  }
+
+  const nextPhoto = () => {
+    if (selectedIndex !== null && selectedIndex < photos.length - 1) {
+      setSelectedIndex(selectedIndex + 1)
+    }
+  }
+
+  const prevPhoto = () => {
+    if (selectedIndex !== null && selectedIndex > 0) {
+      setSelectedIndex(selectedIndex - 1)
+    }
+  }
 
   if (loading) {
     return (
@@ -132,7 +174,7 @@ export default function GalleryPage() {
 
       <PendingUploader />
       
-      {/* Header Premium - Sticky */}
+      {/* Header Premium */}
       <div className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-700/50 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between gap-3">
@@ -144,10 +186,10 @@ export default function GalleryPage() {
                 <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-200 group-hover:-translate-x-0.5 transition-transform duration-300" strokeWidth={2} />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white tracking-wide truncate">Live Gallery</h1>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white tracking-wide truncate">Galeria</h1>
                 <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
                   <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-pulse"></div>
-                  <p className="text-slate-400 text-xs sm:text-sm tracking-wide">{photos.length} photos captured</p>
+                  <p className="text-slate-400 text-xs sm:text-sm tracking-wide">{photos.length} Zdjęć</p>
                 </div>
               </div>
             </div>
@@ -156,7 +198,7 @@ export default function GalleryPage() {
       </div>
 
       {/* Zawartość */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10 pb-24">
         {photos.length === 0 ? (
           <div className={`text-center py-16 sm:py-24 transition-all duration-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
             <div className="inline-block bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-10 sm:p-16 rounded-[32px] border border-slate-600/50 mb-6 sm:mb-8 shadow-[0_16px_64px_rgba(15,23,42,0.6)] relative group">
@@ -164,13 +206,13 @@ export default function GalleryPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-slate-400/5 via-blue-400/5 to-slate-400/5 blur-2xl rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
               <ImageIcon className="w-20 h-20 sm:w-24 sm:h-24 text-slate-600 mx-auto relative" strokeWidth={1.3} />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2 sm:mb-3">No photos yet</h2>
-            <p className="text-slate-400 text-base sm:text-lg mb-6 sm:mb-8">Start capturing magical moments</p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2 sm:mb-3">Nie ma jeszcze żadnych zdjęć</h2>
+            <p className="text-slate-400 text-base sm:text-lg mb-6 sm:mb-8">Zacznij zdobywać niezapomniane momenty </p>
             <button
               onClick={() => router.push('/camera')}
               className="group relative bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-semibold shadow-[0_0_40px_rgba(29,78,216,0.4)] hover:shadow-[0_0_60px_rgba(37,99,235,0.6)] transition-all duration-500 active:scale-95 text-sm sm:text-base"
             >
-              <span className="relative z-10">Open Camera</span>
+              <span className="relative z-10">Otwórz Kamerę</span>
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             </button>
           </div>
@@ -183,12 +225,12 @@ export default function GalleryPage() {
                   <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-white" strokeWidth={2} />
                 </div>
                 <p className="text-blue-200 text-xs sm:text-sm tracking-wide leading-relaxed">
-                  You can only delete your own photos. Gallery syncs in real-time across all devices.
+                  Tap any photo to view. Swipe to navigate. You can delete only your photos.
                 </p>
               </div>
             </div>
 
-            {/* Galeria - masonry grid mobile optimized */}
+            {/* Galeria - masonry grid */}
             <div className="columns-2 lg:columns-3 xl:columns-4 gap-3 sm:gap-4 lg:gap-6 space-y-3 sm:space-y-4 lg:space-y-6">
               {photos.map((photo, index) => (
                 <div 
@@ -207,38 +249,36 @@ export default function GalleryPage() {
                         loading="lazy"
                       />
                       
-                      {/* Gradient overlay zawsze widoczny na mobile */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-500"></div>
-                      
-                      {/* Overlay przy hover/touch */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end p-3 sm:p-4">
+                      {/* Overlay - zawsze widoczne przyciski */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-100 flex items-end p-3 sm:p-4">
                         <div className="flex gap-2 w-full">
+                          {/* Przycisk Zobacz - ZAWSZE */}
                           <button
-                            onClick={() => setSelectedPhoto(photo)}
-                            className="flex-1 bg-white/10 hover:bg-white/20 active:bg-white/25 backdrop-blur-md text-white py-2 sm:py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 border border-white/20 text-sm active:scale-95 min-h-[44px]"
+                            onClick={() => setSelectedIndex(index)}
+                            className="flex-1 bg-white/10 hover:bg-white/20 active:bg-white/25 backdrop-blur-md text-white py-2.5 sm:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 border border-white/20 text-sm active:scale-95 min-h-[48px]"
                           >
-                            <ZoomIn className="w-4 h-4" strokeWidth={2} />
-                            <span className="hidden sm:inline">View</span>
+                            <span>Zobacz</span>
                           </button>
                           
+                          {/* Przycisk Usuń - TYLKO TWOJE */}
                           {canDelete(photo) && (
                             <button 
                               onClick={() => deletePhoto(photo)} 
-                              className="bg-red-900/80 hover:bg-red-800 active:bg-red-700 backdrop-blur-md text-white p-2.5 sm:p-3 rounded-xl transition-all duration-300 border border-red-700/50 active:scale-95 min-w-[44px]"
+                              className="bg-red-900/80 hover:bg-red-800 active:bg-red-700 backdrop-blur-md text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl transition-all duration-300 border border-red-700/50 active:scale-95 min-h-[48px] font-semibold text-sm flex items-center gap-2"
                             >
-                              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
+                              <Trash2 className="w-4 h-4" strokeWidth={2} />
+                              <span className="hidden sm:inline">Usuń</span>
                             </button>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Badge - Twoje zdjęcie - zawsze widoczny */}
+                    {/* Badge - Twoje zdjęcie */}
                     {canDelete(photo) && (
                       <div className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-gradient-to-r from-slate-700/95 to-slate-600/95 backdrop-blur-md text-white text-xs px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full font-semibold shadow-lg border border-slate-500/50 flex items-center gap-1.5">
                         <Star className="w-3 h-3 fill-white" strokeWidth={2} />
-                        <span className="hidden sm:inline">Your photo</span>
-                        <span className="sm:hidden">Yours</span>
+                        <span>Yours</span>
                       </div>
                     )}
                   </div>
@@ -249,28 +289,65 @@ export default function GalleryPage() {
         )}
       </div>
 
-      {/* Modal pełnego zdjęcia - mobile optimized */}
-      {selectedPhoto && (
+      {/* Modal pełnego zdjęcia - z SWIPE */}
+      {selectedIndex !== null && (
         <div 
-          className="fixed inset-0 bg-slate-950/98 backdrop-blur-3xl z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedPhoto(null)}
+          className="fixed inset-0 bg-slate-950/98 backdrop-blur-3xl z-50 flex items-center justify-center"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* Close button - większy touch target */}
+          {/* Close button */}
           <button
-            onClick={() => setSelectedPhoto(null)}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-slate-800/90 hover:bg-slate-700/90 backdrop-blur-xl p-3 sm:p-3.5 rounded-full transition-all duration-300 border border-slate-600/50 shadow-[0_4px_24px_rgba(0,0,0,0.6)] active:scale-95 z-10 min-w-[48px] min-h-[48px] flex items-center justify-center"
+            onClick={() => setSelectedIndex(null)}
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-slate-800/90 hover:bg-slate-700/90 backdrop-blur-xl p-3 sm:p-3.5 rounded-full transition-all duration-300 border border-slate-600/50 shadow-[0_4px_24px_rgba(0,0,0,0.6)] active:scale-95 z-20 min-w-[48px] min-h-[48px] flex items-center justify-center"
           >
             <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
           </button>
+
+          {/* Navigation arrows - desktop */}
+          {selectedIndex > 0 && (
+            <button
+              onClick={prevPhoto}
+              className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 bg-slate-800/90 hover:bg-slate-700/90 backdrop-blur-xl p-3 rounded-full transition-all duration-300 border border-slate-600/50 active:scale-95 z-20"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" strokeWidth={2.5} />
+            </button>
+          )}
+          
+          {selectedIndex < photos.length - 1 && (
+            <button
+              onClick={nextPhoto}
+              className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 bg-slate-800/90 hover:bg-slate-700/90 backdrop-blur-xl p-3 rounded-full transition-all duration-300 border border-slate-600/50 active:scale-95 z-20"
+            >
+              <ChevronRight className="w-6 h-6 text-white" strokeWidth={2.5} />
+            </button>
+          )}
           
           {/* Image container */}
-          <div className="relative max-w-full max-h-[85vh] sm:max-h-[90vh]">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
-              src={getPhotoUrl(selectedPhoto.storage_path)}
-              className="max-w-full max-h-[85vh] sm:max-h-[90vh] object-contain rounded-2xl sm:rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.8)] border border-slate-700/50"
+              src={getPhotoUrl(photos[selectedIndex].storage_path)}
+              className="max-w-full max-h-full object-contain rounded-2xl sm:rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.8)] border border-slate-700/50"
               alt="Full size"
-              onClick={(e) => e.stopPropagation()}
             />
+          </div>
+
+          {/* Counter + Delete button - bottom */}
+          <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-4 px-4">
+            <div className="bg-slate-800/90 backdrop-blur-xl px-4 py-2 rounded-full border border-slate-600/50 text-white text-sm font-medium">
+              {selectedIndex + 1} / {photos.length}
+            </div>
+            
+            {canDelete(photos[selectedIndex]) && (
+              <button
+                onClick={() => deletePhoto(photos[selectedIndex])}
+                className="bg-red-900/90 hover:bg-red-800 backdrop-blur-xl text-white px-5 py-2.5 rounded-full font-semibold flex items-center gap-2 border border-red-700/50 transition-all duration-300 active:scale-95 min-h-[48px] text-sm shadow-lg"
+              >
+                <Trash2 className="w-4 h-4" strokeWidth={2} />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
         </div>
       )}

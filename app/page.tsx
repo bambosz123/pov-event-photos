@@ -124,13 +124,17 @@ export default function HomePage() {
             </div>
             
             {/* Tytuł z animowanym gradientem */}
-            <div className="relative mb-6 sm:mb-8">
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white mb-3 sm:mb-4 tracking-tight leading-tight drop-shadow-[0_2px_20px_rgba(255,255,255,0.1)]">
-                POV
-              </h1>
+            {/* Tytuł z animowanym gradientem */}
+<div className="relative mb-6 sm:mb-8">
+  <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white mb-3 sm:mb-4 tracking-tight leading-tight drop-shadow-[0_2px_20px_rgba(255,255,255,0.1)]"
+      style={{ fontFamily: "'Dancing Script', 'Brush Script MT', cursive" }}>
+    2026
+  </h1>
+
               <div className="relative inline-block">
                 <h2 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight leading-none bg-gradient-to-r from-slate-100 via-white to-slate-200 bg-clip-text text-transparent drop-shadow-[0_4px_24px_rgba(255,255,255,0.2)] animate-gradient-x">
-                  Event Photos
+                  Studniówka
+                
                 </h2>
                 {/* Podświetlenie */}
                 <div className="absolute -inset-2 bg-gradient-to-r from-transparent via-slate-300/10 to-transparent blur-xl"></div>
@@ -149,7 +153,7 @@ export default function HomePage() {
             
             {/* Subtitle */}
             <p className="text-slate-400 text-base sm:text-lg font-light tracking-[0.3em] uppercase mb-4 sm:mb-5 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-              Premium Prom Gallery
+               Galeria Najlepszych Momentów
             </p>
             
             {/* Stats badge */}
@@ -190,8 +194,8 @@ export default function HomePage() {
                     
                     {/* Tekst */}
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Capture Moment</h2>
-                      <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Open camera and create memories</p>
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Zrób Fote!</h2>
+                      <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Otwórz kamerę i twórz wspomnienia</p>
                     </div>
                     
                     {/* Strzałka */}
@@ -219,8 +223,8 @@ export default function HomePage() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Live Gallery</h2>
-                      <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Browse all photos in real-time</p>
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Galeria</h2>
+                      <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Przeglądaj zdjęcia</p>
                     </div>
                     
                     <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-slate-300 group-hover:translate-x-1 transition-transform duration-300 shrink-0" strokeWidth={2.5} />
@@ -247,8 +251,8 @@ export default function HomePage() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Download Photos</h2>
-                      <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Save your memories forever</p>
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Pobierz Zdjęcia</h2>
+                      <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Zapisz te wspomnienia na zawsze</p>
                     </div>
                     
                     <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-slate-300 group-hover:translate-x-1 transition-transform duration-300 shrink-0" strokeWidth={2.5} />
@@ -262,7 +266,7 @@ export default function HomePage() {
           <div className={`text-center mt-10 sm:mt-14 transition-all duration-1000 delay-500 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
             <div className="inline-block px-4 sm:px-6 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-slate-700/50 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
               <p className="text-slate-500 text-[10px] sm:text-xs font-light tracking-[0.3em] uppercase">
-                Premium • Powered by POV
+                Miłej zabawy!
               </p>
             </div>
           </div>
@@ -271,10 +275,10 @@ export default function HomePage() {
 
       {/* Custom animations */}
       <style jsx global>{`
-        @keyframes gradient-x {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
+  @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@300;400;700&display=swap');
+  
+  @keyframes gradient-x {
+    0%, 100% { background-position: 0% 50%; }
         
         @keyframes float {
           0%, 100% { transform: translate(0, 0) scale(1); }

@@ -144,11 +144,11 @@ export default function DownloadPage() {
                 <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-200 group-hover:-translate-x-0.5 transition-transform duration-300" strokeWidth={2} />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white tracking-wide truncate">Download</h1>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white tracking-wide truncate">Pobierz</h1>
                 <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
                   <Sparkles className="w-3 h-3 text-slate-400" />
                   <p className="text-slate-400 text-xs sm:text-sm tracking-wide">
-                    {selected.size} of {photos.length} selected
+                    {selected.size} of {photos.length} zaznaczonych
                   </p>
                 </div>
               </div>
@@ -173,8 +173,8 @@ export default function DownloadPage() {
             <div className="inline-block bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-10 sm:p-16 rounded-[32px] border border-slate-600/50 mb-6 sm:mb-8 shadow-[0_16px_64px_rgba(15,23,42,0.6)]">
               <Package className="w-20 h-20 sm:w-24 sm:h-24 text-slate-600 mx-auto" strokeWidth={1.3} />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2 sm:mb-3">No photos to download</h2>
-            <p className="text-slate-400 text-base sm:text-lg">Capture some moments first</p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2 sm:mb-3">Żadnych zdjęć do pobrania</h2>
+            <p className="text-slate-400 text-base sm:text-lg">Zdobądź najpierw jakieś ciekawe wspomnienia</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">

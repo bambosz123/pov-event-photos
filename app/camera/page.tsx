@@ -16,9 +16,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
-type ZoomLevel = 0.5 | 1 | 2
-
-// Helper function to generate UUID (no external dependency)
+// Helper function to generate UUID
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0
@@ -35,7 +33,6 @@ export default function CameraPage() {
   
   const [isCameraReady, setIsCameraReady] = useState(false)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(1)
   const [flash, setFlash] = useState(false)
   const [grid, setGrid] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
@@ -51,7 +48,6 @@ export default function CameraPage() {
     }
   }, [facingMode])
 
-  // Apply torch/flash when flash state changes
   useEffect(() => {
     applyFlashlight()
   }, [flash])
@@ -103,7 +99,6 @@ export default function CameraPage() {
     const videoTrack = streamRef.current.getVideoTracks()[0]
     const capabilities = videoTrack.getCapabilities() as any
 
-    // Try to use torch if available (mainly Android)
     if (capabilities.torch) {
       try {
         await videoTrack.applyConstraints({
@@ -119,10 +114,6 @@ export default function CameraPage() {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
   }
 
-  const handleZoomChange = (level: ZoomLevel) => {
-    setZoomLevel(level)
-  }
-
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return
 
@@ -132,11 +123,9 @@ export default function CameraPage() {
 
     if (!context) return
 
-    // Set canvas size based on video (high quality)
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
 
-    // Flash effect visual
     if (flash) {
       const flashDiv = document.getElementById('flash-effect')
       if (flashDiv) {
@@ -147,20 +136,8 @@ export default function CameraPage() {
       }
     }
 
-    // Draw with zoom applied
-    const scale = zoomLevel
-    const scaledWidth = canvas.width / scale
-    const scaledHeight = canvas.height / scale
-    const x = (canvas.width - scaledWidth) / 2
-    const y = (canvas.height - scaledHeight) / 2
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    context.drawImage(
-      video,
-      x, y, scaledWidth, scaledHeight,
-      0, 0, canvas.width, canvas.height
-    )
-
-    // Convert to image (high quality)
     const imageData = canvas.toDataURL('image/jpeg', 0.95)
     setCapturedImage(imageData)
   }
@@ -179,7 +156,6 @@ export default function CameraPage() {
     setUploading(true)
 
     try {
-      // Get active event
       const { data: eventData } = await supabase
         .from('events')
         .select('id')
@@ -192,14 +168,10 @@ export default function CameraPage() {
         return
       }
 
-      // Convert base64 to blob
       const response = await fetch(capturedImage)
       const blob = await response.blob()
-
-      // Generate unique filename
       const fileName = `${Date.now()}_${generateUUID()}.jpg`
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(fileName, blob, {
@@ -209,14 +181,12 @@ export default function CameraPage() {
 
       if (uploadError) throw uploadError
 
-      // Get device ID
       let deviceId = localStorage.getItem('device_id')
       if (!deviceId) {
         deviceId = generateUUID()
         localStorage.setItem('device_id', deviceId)
       }
 
-      // Save to database
       const { error: dbError } = await supabase
         .from('photos')
         .insert({
@@ -227,7 +197,6 @@ export default function CameraPage() {
 
       if (dbError) throw dbError
 
-      // Success - redirect to gallery
       router.push('/gallery')
     } catch (err) {
       console.error('Upload error:', err)
@@ -259,7 +228,6 @@ export default function CameraPage() {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Video Preview */}
       <div className="relative w-full h-screen">
         <div className="absolute inset-0 overflow-hidden">
           <video
@@ -268,23 +236,17 @@ export default function CameraPage() {
             playsInline
             muted
             className="w-full h-full object-cover"
-            style={{ 
-              transform: `${facingMode === 'user' ? 'scaleX(-1)' : 'none'} scale(${zoomLevel})`,
-              transformOrigin: 'center center'
-            }}
+            style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
           />
         </div>
         
-        {/* Canvas for capture */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Flash effect - stronger */}
         <div
           id="flash-effect"
           className="absolute inset-0 bg-white pointer-events-none transition-opacity duration-100 opacity-0 z-40"
         />
 
-        {/* Grid Overlay */}
         {grid && (
           <div className="absolute inset-0 pointer-events-none z-20">
             <div className="w-full h-full grid grid-cols-3 grid-rows-3">
@@ -295,133 +257,100 @@ export default function CameraPage() {
           </div>
         )}
 
-        {/* Top Controls */}
-        <div className={`absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4 sm:p-6 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0'}`}>
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            {/* Back Button */}
-            <button
-              onClick={() => router.push('/')}
-              className="group bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3 rounded-full border border-white/20 transition-all duration-300 active:scale-95"
-            >
-              <ArrowLeft className="w-6 h-6 text-white group-hover:-translate-x-0.5 transition-transform duration-300" strokeWidth={2.5} />
-            </button>
+        {/* Top Controls - tylko Back, Flash, Grid */}
+<div className={`absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/90 via-black/50 to-transparent pt-safe p-4 sm:p-6 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0'}`}>
+  <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <button
+      onClick={() => router.push('/')}
+      className="group bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3.5 rounded-full border border-white/20 transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px]"
+    >
+      <ArrowLeft className="w-6 h-6 text-white" strokeWidth={2.5} />
+    </button>
 
-            {/* Top Right Controls */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Flash Toggle */}
-              <button
-                onClick={() => setFlash(!flash)}
-                className={`p-3 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 ${
-                  flash 
-                    ? 'bg-yellow-500/90 border-yellow-400/60 shadow-[0_0_24px_rgba(234,179,8,0.6)]' 
-                    : 'bg-white/10 border-white/20 hover:bg-white/20'
-                }`}
-              >
-                {flash ? (
-                  <Zap className="w-5 h-5 text-white" strokeWidth={2.5} fill="white" />
-                ) : (
-                  <ZapOff className="w-5 h-5 text-white" strokeWidth={2.5} />
-                )}
-              </button>
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => setFlash(!flash)}
+        className={`p-3.5 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] ${
+          flash 
+            ? 'bg-yellow-500/90 border-yellow-400/60 shadow-[0_0_24px_rgba(234,179,8,0.6)]' 
+            : 'bg-white/10 border-white/20 hover:bg-white/20'
+        }`}
+      >
+        {flash ? (
+          <Zap className="w-5 h-5 text-white" strokeWidth={2.5} fill="white" />
+        ) : (
+          <ZapOff className="w-5 h-5 text-white" strokeWidth={2.5} />
+        )}
+      </button>
 
-              {/* Grid Toggle */}
-              <button
-                onClick={() => setGrid(!grid)}
-                className={`p-3 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 ${
-                  grid 
-                    ? 'bg-white/20 border-white/40' 
-                    : 'bg-white/10 border-white/20 hover:bg-white/20'
-                }`}
-              >
-                <Grid3x3 className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </button>
+      <button
+        onClick={() => setGrid(!grid)}
+        className={`p-3.5 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] ${
+          grid 
+            ? 'bg-white/20 border-white/40' 
+            : 'bg-white/10 border-white/20 hover:bg-white/20'
+        }`}
+      >
+        <Grid3x3 className="w-5 h-5 text-white" strokeWidth={2.5} />
+      </button>
+    </div>
+  </div>
+</div>
 
-              {/* Camera Switch */}
-              <button
-                onClick={switchCamera}
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3 rounded-full border border-white/20 transition-all duration-300 active:scale-95"
-              >
-                <RotateCcw className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </button>
+{/* Bottom Controls - dodaj przycisk zmiany kamery */}
+<div className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-safe p-6 sm:p-8 transition-all duration-700 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+  <div className="max-w-7xl mx-auto">
+    <div className="flex items-end justify-between">
+      {/* Galeria (lewo) */}
+      <button
+        onClick={() => router.push('/gallery')}
+        className="group relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/40 hover:border-white/60 transition-all duration-300 active:scale-95"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
+          <ImageIcon className="w-6 h-6 text-white" strokeWidth={2} />
+        </div>
+      </button>
+
+      {/* Środek - przycisk zdjęcia */}
+      <button
+        onClick={handleCapture}
+        disabled={!isCameraReady}
+        className="group relative disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 active:scale-95 mb-2"
+      >
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-white/40 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-white group-hover:bg-slate-200 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.5)] group-hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] flex items-center justify-center">
+              <Camera className="w-10 h-10 text-black" strokeWidth={2.5} />
             </div>
           </div>
+          <div className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-20" />
         </div>
+      </button>
 
-        {/* Bottom Controls */}
-        <div className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 sm:p-8 transition-all duration-700 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-          <div className="max-w-7xl mx-auto">
-            
-            {/* Zoom Controls */}
-            <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-              <div className="bg-white/10 backdrop-blur-xl rounded-full p-1.5 border border-white/20 flex gap-1">
-                {([0.5, 1, 2] as ZoomLevel[]).map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => handleZoomChange(level)}
-                    className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-sm sm:text-base transition-all duration-300 active:scale-95 ${
-                      zoomLevel === level
-                        ? 'bg-white text-black shadow-lg'
-                        : 'text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {level}x
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* Prawo - switch kamery */}
+      <button
+        onClick={switchCamera}
+        className="bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3.5 rounded-full border border-white/20 transition-all duration-300 active:scale-95 min-w-[56px] min-h-[56px] flex items-center justify-center"
+      >
+        <RotateCcw className="w-6 h-6 text-white" strokeWidth={2.5} />
+      </button>
+    </div>
 
-            {/* Capture Button */}
-            <div className="flex items-center justify-center gap-6 sm:gap-8">
-              {/* Gallery Preview */}
-              <button
-                onClick={() => router.push('/gallery')}
-                className="group relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl overflow-hidden border-2 border-white/40 hover:border-white/60 transition-all duration-300 active:scale-95"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
-                  <ImageIcon className="w-6 h-6 text-white" strokeWidth={2} />
-                </div>
-              </button>
-
-              {/* Main Capture Button */}
-              <button
-                onClick={handleCapture}
-                disabled={!isCameraReady}
-                className="group relative disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 active:scale-95"
-              >
-                <div className="relative">
-                  {/* Outer ring */}
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white/40 flex items-center justify-center">
-                    {/* Inner button */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white group-hover:bg-slate-200 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.5)] group-hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] flex items-center justify-center">
-                      <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-black" strokeWidth={2.5} />
-                    </div>
-                  </div>
-                  
-                  {/* Pulse effect */}
-                  <div className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-20" />
-                </div>
-              </button>
-
-              {/* Spacer for symmetry */}
-              <div className="w-12 h-12 sm:w-14 sm:h-14" />
-            </div>
-
-            {/* Status indicator */}
-            {!isCameraReady && (
-              <div className="text-center mt-4">
-                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20">
-                  <Loader2 className="w-4 h-4 text-white animate-spin" strokeWidth={2.5} />
-                  <span className="text-white text-sm font-medium">Initializing camera...</span>
-                </div>
-              </div>
-            )}
-          </div>
+    {!isCameraReady && (
+      <div className="text-center mt-4">
+        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20">
+          <Loader2 className="w-4 h-4 text-white animate-spin" strokeWidth={2.5} />
+          <span className="text-white text-sm font-medium">Initializing...</span>
         </div>
+      </div>
+    )}
+  </div>
+</div>
 
-        {/* Captured Image Preview Modal */}
+
+        {/* Preview Modal */}
         {capturedImage && (
           <div className="fixed inset-0 bg-black z-50 flex flex-col">
-            {/* Preview Image - PEŁNY EKRAN */}
             <div className="flex-1 relative">
               <img
                 src={capturedImage}
@@ -431,10 +360,8 @@ export default function CameraPage() {
               />
             </div>
 
-            {/* Action Buttons - WYŻEJ */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent pt-32 pb-8 px-6">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent pt-32 pb-safe pb-8 px-6">
               <div className="max-w-md mx-auto flex gap-4">
-                {/* Retake */}
                 <button
                   onClick={retakePhoto}
                   disabled={uploading}
@@ -444,7 +371,6 @@ export default function CameraPage() {
                   <span>Retake</span>
                 </button>
 
-                {/* Upload */}
                 <button
                   onClick={uploadPhoto}
                   disabled={uploading}
