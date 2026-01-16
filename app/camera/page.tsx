@@ -1,7 +1,442 @@
 'use client'
 
-import CameraCapture from '@/components/Camera/CameraCapture'
+import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { 
+  ArrowLeft, 
+  Camera, 
+  RotateCcw, 
+  Zap, 
+  ZapOff,
+  Grid3x3,
+  Loader2,
+  Check,
+  X,
+  Image as ImageIcon,
+} from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+
+type ZoomLevel = 0.5 | 1 | 2
+
+// Helper function to generate UUID (no external dependency)
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
 
 export default function CameraPage() {
-  return <CameraCapture />
+  const router = useRouter()
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  
+  const [isCameraReady, setIsCameraReady] = useState(false)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(1)
+  const [flash, setFlash] = useState(false)
+  const [grid, setGrid] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    initCamera()
+    return () => {
+      stopCamera()
+    }
+  }, [facingMode])
+
+  const initCamera = async () => {
+    try {
+      setError(null)
+      stopCamera()
+
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      streamRef.current = stream
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play()
+          setIsCameraReady(true)
+        }
+      }
+    } catch (err) {
+      console.error('Camera error:', err)
+      setError('Camera access denied. Please allow camera permissions.')
+      setIsCameraReady(false)
+    }
+  }
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setIsCameraReady(false)
+  }
+
+  const switchCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
+  }
+
+  const handleZoomChange = (level: ZoomLevel) => {
+    setZoomLevel(level)
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    const context = canvas.getContext('2d')
+
+    if (!context) return
+
+    // Set canvas size based on video
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    // Flash effect
+    if (flash) {
+      const flashDiv = document.getElementById('flash-effect')
+      if (flashDiv) {
+        flashDiv.style.opacity = '1'
+        setTimeout(() => {
+          flashDiv.style.opacity = '0'
+        }, 200)
+      }
+    }
+
+    // Apply zoom transform
+    context.save()
+    context.translate(canvas.width / 2, canvas.height / 2)
+    context.scale(zoomLevel, zoomLevel)
+    context.translate(-canvas.width / 2, -canvas.height / 2)
+    
+    // Draw video frame
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    context.restore()
+
+    // Convert to image
+    const imageData = canvas.toDataURL('image/jpeg', 0.95)
+    setCapturedImage(imageData)
+  }
+
+  const handleCapture = () => {
+    capturePhoto()
+  }
+
+  const retakePhoto = () => {
+    setCapturedImage(null)
+  }
+
+  const uploadPhoto = async () => {
+    if (!capturedImage) return
+
+    setUploading(true)
+
+    try {
+      // Get active event
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('id')
+        .eq('is_active', true)
+        .single()
+
+      if (!eventData) {
+        alert('No active event found')
+        setUploading(false)
+        return
+      }
+
+      // Convert base64 to blob
+      const response = await fetch(capturedImage)
+      const blob = await response.blob()
+
+      // Generate unique filename
+      const fileName = `${Date.now()}_${generateUUID()}.jpg`
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600'
+        })
+
+      if (uploadError) throw uploadError
+
+      // Get device ID
+      let deviceId = localStorage.getItem('device_id')
+      if (!deviceId) {
+        deviceId = generateUUID()
+        localStorage.setItem('device_id', deviceId)
+      }
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('photos')
+        .insert({
+          event_id: eventData.id,
+          storage_path: fileName,
+          device_id: deviceId
+        })
+
+      if (dbError) throw dbError
+
+      // Success - redirect to gallery
+      router.push('/gallery')
+    } catch (err) {
+      console.error('Upload error:', err)
+      alert('Failed to upload photo')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-12 rounded-[32px] border border-slate-600/50 mb-6 shadow-[0_16px_64px_rgba(15,23,42,0.6)]">
+            <Camera className="w-20 h-20 text-slate-600 mx-auto mb-4" strokeWidth={1.3} />
+            <h2 className="text-2xl font-semibold text-white mb-3">Camera Access Required</h2>
+            <p className="text-slate-400 mb-6">{error}</p>
+            <button
+              onClick={() => router.push('/')}
+              className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white px-8 py-3.5 rounded-full font-semibold transition-all duration-300"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Video Preview */}
+      <div className="relative w-full h-screen">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ 
+            transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+            filter: `brightness(${zoomLevel === 0.5 ? 0.95 : 1})`
+          }}
+        />
+        
+        {/* Canvas for capture */}
+        <canvas ref={canvasRef} className="hidden" />
+
+        {/* Flash effect */}
+        <div
+          id="flash-effect"
+          className="absolute inset-0 bg-white pointer-events-none transition-opacity duration-200 opacity-0"
+        />
+
+        {/* Grid Overlay */}
+        {grid && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="w-full h-full grid grid-cols-3 grid-rows-3">
+              {[...Array(9)].map((_, i) => (
+                <div key={i} className="border border-white/20" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top Controls */}
+        <div className={`absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4 sm:p-6 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0'}`}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* Back Button */}
+            <button
+              onClick={() => router.push('/')}
+              className="group bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3 rounded-full border border-white/20 transition-all duration-300 active:scale-95"
+            >
+              <ArrowLeft className="w-6 h-6 text-white group-hover:-translate-x-0.5 transition-transform duration-300" strokeWidth={2.5} />
+            </button>
+
+            {/* Top Right Controls */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Flash Toggle */}
+              <button
+                onClick={() => setFlash(!flash)}
+                className={`p-3 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 ${
+                  flash 
+                    ? 'bg-yellow-500/80 border-yellow-400/50 shadow-[0_0_20px_rgba(234,179,8,0.5)]' 
+                    : 'bg-white/10 border-white/20 hover:bg-white/20'
+                }`}
+              >
+                {flash ? (
+                  <Zap className="w-5 h-5 text-white" strokeWidth={2.5} fill="white" />
+                ) : (
+                  <ZapOff className="w-5 h-5 text-white" strokeWidth={2.5} />
+                )}
+              </button>
+
+              {/* Grid Toggle */}
+              <button
+                onClick={() => setGrid(!grid)}
+                className={`p-3 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 ${
+                  grid 
+                    ? 'bg-white/20 border-white/40' 
+                    : 'bg-white/10 border-white/20 hover:bg-white/20'
+                }`}
+              >
+                <Grid3x3 className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </button>
+
+              {/* Camera Switch */}
+              <button
+                onClick={switchCamera}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3 rounded-full border border-white/20 transition-all duration-300 active:scale-95"
+              >
+                <RotateCcw className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Controls */}
+        <div className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 sm:p-8 transition-all duration-700 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+          <div className="max-w-7xl mx-auto">
+            
+            {/* Zoom Controls */}
+            <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+              <div className="bg-white/10 backdrop-blur-xl rounded-full p-1.5 border border-white/20 flex gap-1">
+                {([0.5, 1, 2] as ZoomLevel[]).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => handleZoomChange(level)}
+                    className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-sm sm:text-base transition-all duration-300 active:scale-95 ${
+                      zoomLevel === level
+                        ? 'bg-white text-black shadow-lg'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {level}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Capture Button */}
+            <div className="flex items-center justify-center gap-6 sm:gap-8">
+              {/* Gallery Preview */}
+              <button
+                onClick={() => router.push('/gallery')}
+                className="group relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl overflow-hidden border-2 border-white/40 hover:border-white/60 transition-all duration-300 active:scale-95"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
+                  <ImageIcon className="w-6 h-6 text-white" strokeWidth={2} />
+                </div>
+              </button>
+
+              {/* Main Capture Button */}
+              <button
+                onClick={handleCapture}
+                disabled={!isCameraReady}
+                className="group relative disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 active:scale-95"
+              >
+                <div className="relative">
+                  {/* Outer ring */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white/40 flex items-center justify-center">
+                    {/* Inner button */}
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white group-hover:bg-slate-200 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.5)] group-hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] flex items-center justify-center">
+                      <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-black" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  
+                  {/* Pulse effect */}
+                  <div className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-20" />
+                </div>
+              </button>
+
+              {/* Spacer for symmetry */}
+              <div className="w-12 h-12 sm:w-14 sm:h-14" />
+            </div>
+
+            {/* Status indicator */}
+            {!isCameraReady && (
+              <div className="text-center mt-4">
+                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20">
+                  <Loader2 className="w-4 h-4 text-white animate-spin" strokeWidth={2.5} />
+                  <span className="text-white text-sm font-medium">Initializing camera...</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Captured Image Preview Modal */}
+        {capturedImage && (
+          <div className="absolute inset-0 bg-black z-50 flex flex-col">
+            {/* Preview Image */}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <img
+                src={capturedImage}
+                alt="Captured"
+                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 sm:p-8">
+              <div className="max-w-md mx-auto flex gap-4">
+                {/* Retake */}
+                <button
+                  onClick={retakePhoto}
+                  disabled={uploading}
+                  className="flex-1 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white px-6 py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border border-white/20 transition-all duration-300 active:scale-95 disabled:opacity-50 min-h-[56px]"
+                >
+                  <X className="w-5 h-5" strokeWidth={2.5} />
+                  <span>Retake</span>
+                </button>
+
+                {/* Upload */}
+                <button
+                  onClick={uploadPhoto}
+                  disabled={uploading}
+                  className="flex-1 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white px-6 py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(100,116,139,0.5)] hover:shadow-[0_0_60px_rgba(148,163,184,0.7)] transition-all duration-500 active:scale-95 disabled:opacity-50 min-h-[56px]"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" strokeWidth={2.5} />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5" strokeWidth={2.5} />
+                      <span>Use Photo</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
