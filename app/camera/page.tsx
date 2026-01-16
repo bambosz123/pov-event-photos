@@ -51,6 +51,11 @@ export default function CameraPage() {
     }
   }, [facingMode])
 
+  // Apply torch/flash when flash state changes
+  useEffect(() => {
+    applyFlashlight()
+  }, [flash])
+
   const initCamera = async () => {
     try {
       setError(null)
@@ -84,10 +89,30 @@ export default function CameraPage() {
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current.getTracks().forEach(track => {
+        track.stop()
+      })
       streamRef.current = null
     }
     setIsCameraReady(false)
+  }
+
+  const applyFlashlight = async () => {
+    if (!streamRef.current) return
+
+    const videoTrack = streamRef.current.getVideoTracks()[0]
+    const capabilities = videoTrack.getCapabilities() as any
+
+    // Try to use torch if available (mainly Android)
+    if (capabilities.torch) {
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ torch: flash } as any]
+        })
+      } catch (err) {
+        console.log('Torch not supported on this device')
+      }
+    }
   }
 
   const switchCamera = () => {
@@ -107,32 +132,35 @@ export default function CameraPage() {
 
     if (!context) return
 
-    // Set canvas size based on video
+    // Set canvas size based on video (high quality)
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
 
-    // Flash effect
+    // Flash effect visual
     if (flash) {
       const flashDiv = document.getElementById('flash-effect')
       if (flashDiv) {
         flashDiv.style.opacity = '1'
         setTimeout(() => {
           flashDiv.style.opacity = '0'
-        }, 200)
+        }, 100)
       }
     }
 
-    // Apply zoom transform
-    context.save()
-    context.translate(canvas.width / 2, canvas.height / 2)
-    context.scale(zoomLevel, zoomLevel)
-    context.translate(-canvas.width / 2, -canvas.height / 2)
-    
-    // Draw video frame
-    context.drawImage(video, 0, 0, canvas.width, canvas.height)
-    context.restore()
+    // Draw with zoom applied
+    const scale = zoomLevel
+    const scaledWidth = canvas.width / scale
+    const scaledHeight = canvas.height / scale
+    const x = (canvas.width - scaledWidth) / 2
+    const y = (canvas.height - scaledHeight) / 2
 
-    // Convert to image
+    context.drawImage(
+      video,
+      x, y, scaledWidth, scaledHeight,
+      0, 0, canvas.width, canvas.height
+    )
+
+    // Convert to image (high quality)
     const imageData = canvas.toDataURL('image/jpeg', 0.95)
     setCapturedImage(imageData)
   }
@@ -233,33 +261,35 @@ export default function CameraPage() {
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Video Preview */}
       <div className="relative w-full h-screen">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ 
-            transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-            filter: `brightness(${zoomLevel === 0.5 ? 0.95 : 1})`
-          }}
-        />
+        <div className="absolute inset-0 overflow-hidden">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ 
+              transform: `${facingMode === 'user' ? 'scaleX(-1)' : 'none'} scale(${zoomLevel})`,
+              transformOrigin: 'center center'
+            }}
+          />
+        </div>
         
         {/* Canvas for capture */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Flash effect */}
+        {/* Flash effect - stronger */}
         <div
           id="flash-effect"
-          className="absolute inset-0 bg-white pointer-events-none transition-opacity duration-200 opacity-0"
+          className="absolute inset-0 bg-white pointer-events-none transition-opacity duration-100 opacity-0 z-40"
         />
 
         {/* Grid Overlay */}
         {grid && (
-          <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 pointer-events-none z-20">
             <div className="w-full h-full grid grid-cols-3 grid-rows-3">
               {[...Array(9)].map((_, i) => (
-                <div key={i} className="border border-white/20" />
+                <div key={i} className="border border-white/30" />
               ))}
             </div>
           </div>
@@ -283,7 +313,7 @@ export default function CameraPage() {
                 onClick={() => setFlash(!flash)}
                 className={`p-3 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 ${
                   flash 
-                    ? 'bg-yellow-500/80 border-yellow-400/50 shadow-[0_0_20px_rgba(234,179,8,0.5)]' 
+                    ? 'bg-yellow-500/90 border-yellow-400/60 shadow-[0_0_24px_rgba(234,179,8,0.6)]' 
                     : 'bg-white/10 border-white/20 hover:bg-white/20'
                 }`}
               >
@@ -390,27 +420,27 @@ export default function CameraPage() {
 
         {/* Captured Image Preview Modal */}
         {capturedImage && (
-          <div className="absolute inset-0 bg-black z-50 flex flex-col">
-            {/* Preview Image */}
-            <div className="flex-1 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black z-50 flex flex-col">
+            {/* Preview Image - PEŁNY EKRAN */}
+            <div className="flex-1 relative">
               <img
                 src={capturedImage}
                 alt="Captured"
-                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                className="absolute inset-0 w-full h-full object-cover"
                 style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 sm:p-8">
+            {/* Action Buttons - WYŻEJ */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent pt-32 pb-8 px-6">
               <div className="max-w-md mx-auto flex gap-4">
                 {/* Retake */}
                 <button
                   onClick={retakePhoto}
                   disabled={uploading}
-                  className="flex-1 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white px-6 py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border border-white/20 transition-all duration-300 active:scale-95 disabled:opacity-50 min-h-[56px]"
+                  className="flex-1 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white px-6 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 border border-white/30 transition-all duration-300 active:scale-95 disabled:opacity-50 min-h-[64px] shadow-lg"
                 >
-                  <X className="w-5 h-5" strokeWidth={2.5} />
+                  <X className="w-6 h-6" strokeWidth={2.5} />
                   <span>Retake</span>
                 </button>
 
@@ -418,16 +448,16 @@ export default function CameraPage() {
                 <button
                   onClick={uploadPhoto}
                   disabled={uploading}
-                  className="flex-1 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white px-6 py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(100,116,139,0.5)] hover:shadow-[0_0_60px_rgba(148,163,184,0.7)] transition-all duration-500 active:scale-95 disabled:opacity-50 min-h-[56px]"
+                  className="flex-1 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white px-6 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(100,116,139,0.5)] hover:shadow-[0_0_60px_rgba(148,163,184,0.7)] transition-all duration-500 active:scale-95 disabled:opacity-50 min-h-[64px] border border-slate-500/50"
                 >
                   {uploading ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" strokeWidth={2.5} />
+                      <Loader2 className="w-6 h-6 animate-spin" strokeWidth={2.5} />
                       <span>Uploading...</span>
                     </>
                   ) : (
                     <>
-                      <Check className="w-5 h-5" strokeWidth={2.5} />
+                      <Check className="w-6 h-6" strokeWidth={2.5} />
                       <span>Use Photo</span>
                     </>
                   )}
