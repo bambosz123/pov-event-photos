@@ -148,7 +148,7 @@ export default function DownloadPage() {
                 <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
                   <Sparkles className="w-3 h-3 text-slate-400" />
                   <p className="text-slate-400 text-xs sm:text-sm tracking-wide">
-                    {selected.size} of {photos.length} zaznaczonych
+                    {selected.size} z {photos.length} Zaznaczonych
                   </p>
                 </div>
               </div>

@@ -5,16 +5,19 @@ import Link from 'next/link'
 import { Camera, Image, Download, Settings, Sparkles, ChevronRight, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
+
 export default function HomePage() {
   const [eventName, setEventName] = useState('')
   const [photoCount, setPhotoCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
 
+
   useEffect(() => {
     loadActiveEvent()
     setTimeout(() => setMounted(true), 100)
   }, [])
+
 
   const loadActiveEvent = async () => {
     setLoading(true)
@@ -24,6 +27,7 @@ export default function HomePage() {
       .select('*')
       .eq('is_active', true)
       .single()
+
 
     if (eventData) {
       setEventName(eventData.name)
@@ -39,16 +43,14 @@ export default function HomePage() {
     setLoading(false)
   }
 
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center">
         <div className="relative">
-          {/* Główny spinner */}
           <div className="w-20 h-20 border-[3px] border-slate-700/30 rounded-full"></div>
           <div className="absolute inset-0 w-20 h-20 border-[3px] border-transparent border-t-slate-300 rounded-full animate-spin"></div>
-          {/* Blask */}
           <div className="absolute inset-0 w-20 h-20 border-[3px] border-slate-400/20 rounded-full blur-md"></div>
-          {/* Pulsujący środek */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-8 h-8 bg-gradient-to-br from-slate-300 to-slate-500 rounded-full animate-pulse"></div>
           </div>
@@ -57,16 +59,15 @@ export default function HomePage() {
     )
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] relative overflow-hidden">
       {/* Animated background particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Główne świetlne kule */}
         <div className="absolute top-[10%] left-[15%] w-[500px] h-[500px] bg-gradient-to-br from-slate-400/8 to-transparent rounded-full blur-[100px] animate-float"></div>
         <div className="absolute top-[60%] right-[10%] w-[600px] h-[600px] bg-gradient-to-br from-blue-400/6 to-transparent rounded-full blur-[120px] animate-float-delayed"></div>
         <div className="absolute bottom-[20%] left-[40%] w-[400px] h-[400px] bg-gradient-to-br from-slate-300/5 to-transparent rounded-full blur-[80px] animate-float-slow"></div>
         
-        {/* Małe gwiazdy */}
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
@@ -84,19 +85,14 @@ export default function HomePage() {
       {/* Premium grid overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(203,213,225,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(203,213,225,0.03)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,black,transparent)]"></div>
 
-      {/* Przycisk Admin - Premium Silver */}
-      <div className={`absolute top-4 right-4 z-50 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`}>
-        <Link href="/admin">
-          <button className="group relative bg-gradient-to-br from-slate-700/90 to-slate-800/90 hover:from-slate-600/90 hover:to-slate-700/90 backdrop-blur-xl text-white pl-4 pr-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-[0_8px_32px_rgba(15,23,42,0.6)] transition-all duration-500 hover:scale-105 hover:shadow-[0_12px_48px_rgba(100,116,139,0.4)] border border-slate-600/50 hover:border-slate-500/70">
-            <div className="bg-gradient-to-br from-slate-500 to-slate-600 p-1.5 rounded-full">
-              <Settings className="w-4 h-4 text-white group-hover:rotate-180 transition-transform duration-700" strokeWidth={2.5} />
-            </div>
-            <span className="text-sm tracking-widest">ADMIN</span>
-            {/* Blask */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-          </button>
-        </Link>
-      </div>
+      {/* Przycisk Admin - TYLKO IKONA */}
+<div className={`absolute top-4 right-4 z-50 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`}>
+  <Link href="/admin">
+    <button className="bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-600/80 backdrop-blur-xl text-white p-3.5 rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-slate-600/50">
+      <Settings className="w-5 h-5 text-white" strokeWidth={2.5} />
+    </button>
+  </Link>
+</div>
 
       {/* Główna zawartość */}
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 relative z-10">
@@ -107,36 +103,29 @@ export default function HomePage() {
             
             {/* Logo container z efektami */}
             <div className="inline-block mb-6 sm:mb-8 relative group">
-              {/* Pulsujący blask w tle */}
               <div className="absolute inset-0 bg-gradient-to-r from-slate-400/20 via-blue-400/15 to-slate-400/20 blur-[60px] rounded-full group-hover:blur-[80px] transition-all duration-1000 animate-pulse-slow"></div>
               
-              {/* Główny kontener ikony */}
               <div className="relative bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-6 sm:p-8 rounded-[32px] border border-slate-600/60 shadow-[0_16px_64px_rgba(15,23,42,0.8)] group-hover:shadow-[0_24px_80px_rgba(100,116,139,0.4)] transition-all duration-700 group-hover:scale-105">
-                {/* Wewnętrzny blask */}
                 <div className="absolute inset-2 bg-gradient-to-br from-slate-700/20 to-transparent rounded-[28px]"></div>
                 
                 <Camera className="w-16 h-16 sm:w-20 sm:h-20 text-slate-200 relative z-10 drop-shadow-[0_4px_12px_rgba(226,232,240,0.3)]" strokeWidth={1.3} />
                 
-                {/* Dekoracyjne pierścienie */}
                 <div className="absolute -inset-4 border border-slate-600/20 rounded-[40px] group-hover:scale-110 transition-transform duration-700"></div>
                 <div className="absolute -inset-6 border border-slate-600/10 rounded-[48px] group-hover:scale-125 transition-transform duration-1000"></div>
               </div>
             </div>
             
             {/* Tytuł z animowanym gradientem */}
-            {/* Tytuł z animowanym gradientem */}
-<div className="relative mb-6 sm:mb-8">
-  <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white mb-3 sm:mb-4 tracking-tight leading-tight drop-shadow-[0_2px_20px_rgba(255,255,255,0.1)]"
-      style={{ fontFamily: "'Dancing Script', 'Brush Script MT', cursive" }}>
-    2026
-  </h1>
+            <div className="relative mb-6 sm:mb-8">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white mb-3 sm:mb-4 tracking-tight leading-tight drop-shadow-[0_2px_20px_rgba(255,255,255,0.1)]"
+                  style={{ fontFamily: "'Dancing Script', 'Brush Script MT', cursive" }}>
+                2026
+              </h1>
 
               <div className="relative inline-block">
                 <h2 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight leading-none bg-gradient-to-r from-slate-100 via-white to-slate-200 bg-clip-text text-transparent drop-shadow-[0_4px_24px_rgba(255,255,255,0.2)] animate-gradient-x">
                   Studniówka
-                
                 </h2>
-                {/* Podświetlenie */}
                 <div className="absolute -inset-2 bg-gradient-to-r from-transparent via-slate-300/10 to-transparent blur-xl"></div>
               </div>
             </div>
@@ -161,7 +150,7 @@ export default function HomePage() {
               <div className="inline-block bg-gradient-to-r from-slate-800/60 via-slate-700/60 to-slate-800/60 backdrop-blur-xl px-5 sm:px-6 py-2 sm:py-2.5 rounded-full border border-slate-600/50 shadow-[0_4px_24px_rgba(15,23,42,0.6)]">
                 <p className="text-slate-200 text-xs sm:text-sm font-semibold tracking-[0.2em] flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
-                  {photoCount} {photoCount === 1 ? 'PHOTO' : 'PHOTOS'} CAPTURED
+                  {photoCount} {photoCount === 1 ? 'PHOTO' : 'ZDJĘĆ'} ZACHOWANYCH
                 </p>
               </div>
             )}
@@ -173,18 +162,13 @@ export default function HomePage() {
             {/* Aparat - Navy Premium */}
             <Link href="/camera">
               <div className={`group relative transition-all duration-700 delay-200 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-                {/* Blask w tle */}
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-blue-500/15 to-blue-600/20 rounded-[28px] blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700"></div>
                 
-                {/* Główny kontener */}
                 <div className="relative bg-gradient-to-br from-slate-800/70 via-slate-900/70 to-slate-800/70 backdrop-blur-2xl rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 lg:p-7 border border-slate-600/50 group-hover:border-slate-500/70 transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] cursor-pointer overflow-hidden shadow-[0_8px_32px_rgba(15,23,42,0.6)] group-hover:shadow-[0_16px_48px_rgba(30,58,138,0.3)]">
                   
-                  {/* Animowany gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   
-                  {/* Zawartość */}
                   <div className="relative flex items-center gap-4 sm:gap-6">
-                    {/* Ikona */}
                     <div className="relative shrink-0">
                       <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-800 blur-xl opacity-60"></div>
                       <div className="relative bg-gradient-to-br from-blue-600 to-blue-800 p-3.5 sm:p-4 lg:p-5 rounded-[18px] sm:rounded-[20px] shadow-[0_8px_24px_rgba(30,58,138,0.4)] group-hover:shadow-[0_12px_32px_rgba(37,99,235,0.5)] transition-all duration-500">
@@ -192,13 +176,11 @@ export default function HomePage() {
                       </div>
                     </div>
                     
-                    {/* Tekst */}
                     <div className="flex-1 min-w-0">
                       <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-1 tracking-wide truncate">Zrób Fote!</h2>
                       <p className="text-slate-400 text-sm sm:text-base font-light tracking-wide truncate">Otwórz kamerę i twórz wspomnienia</p>
                     </div>
                     
-                    {/* Strzałka */}
                     <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-slate-300 group-hover:translate-x-1 transition-transform duration-300 shrink-0" strokeWidth={2.5} />
                   </div>
                 </div>
@@ -275,10 +257,12 @@ export default function HomePage() {
 
       {/* Custom animations */}
       <style jsx global>{`
-  @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@300;400;700&display=swap');
-  
-  @keyframes gradient-x {
-    0%, 100% { background-position: 0% 50%; }
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@300;400;700&display=swap');
+        
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
         
         @keyframes float {
           0%, 100% { transform: translate(0, 0) scale(1); }
@@ -342,12 +326,10 @@ export default function HomePage() {
           animation: spin-slow 8s linear infinite;
         }
         
-        /* Smooth scroll for mobile */
         * {
           -webkit-tap-highlight-color: transparent;
         }
         
-        /* Better touch feedback */
         button, a {
           -webkit-touch-callout: none;
           -webkit-user-select: none;

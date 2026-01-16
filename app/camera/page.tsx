@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
-// Helper function to generate UUID
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0
@@ -39,6 +38,7 @@ export default function CameraPage() {
   const [uploading, setUploading] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -148,6 +148,7 @@ export default function CameraPage() {
 
   const retakePhoto = () => {
     setCapturedImage(null)
+    setUploadSuccess(false)
   }
 
   const uploadPhoto = async () => {
@@ -197,7 +198,12 @@ export default function CameraPage() {
 
       if (dbError) throw dbError
 
-      router.push('/gallery')
+      setUploadSuccess(true)
+      setTimeout(() => {
+        setCapturedImage(null)
+        setUploadSuccess(false)
+      }, 1500)
+
     } catch (err) {
       console.error('Upload error:', err)
       alert('Failed to upload photo')
@@ -257,96 +263,95 @@ export default function CameraPage() {
           </div>
         )}
 
-        {/* Top Controls - tylko Back, Flash, Grid */}
-<div className={`absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/90 via-black/50 to-transparent pt-safe p-4 sm:p-6 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0'}`}>
-  <div className="max-w-7xl mx-auto flex items-center justify-between">
-    <button
-      onClick={() => router.push('/')}
-      className="group bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3.5 rounded-full border border-white/20 transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px]"
-    >
-      <ArrowLeft className="w-6 h-6 text-white" strokeWidth={2.5} />
-    </button>
+        {/* Top Controls */}
+        <div className={`absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/90 via-black/50 to-transparent pt-safe p-4 sm:p-6 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0'}`}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <button
+              onClick={() => router.push('/')}
+              className="group bg-white/10 hover:bg-white/20 active:bg-white/25 backdrop-blur-xl p-3.5 rounded-full border border-white/20 transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-white/50"
+            >
+              <ArrowLeft className="w-6 h-6 text-white group-hover:-translate-x-0.5 transition-transform duration-300" strokeWidth={2.5} />
+            </button>
 
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => setFlash(!flash)}
-        className={`p-3.5 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] ${
-          flash 
-            ? 'bg-yellow-500/90 border-yellow-400/60 shadow-[0_0_24px_rgba(234,179,8,0.6)]' 
-            : 'bg-white/10 border-white/20 hover:bg-white/20'
-        }`}
-      >
-        {flash ? (
-          <Zap className="w-5 h-5 text-white" strokeWidth={2.5} fill="white" />
-        ) : (
-          <ZapOff className="w-5 h-5 text-white" strokeWidth={2.5} />
-        )}
-      </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setFlash(!flash)}
+                className={`p-3.5 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-white/50 ${
+                  flash 
+                    ? 'bg-yellow-500/90 border-yellow-400/60 shadow-[0_0_24px_rgba(234,179,8,0.6)]' 
+                    : 'bg-white/10 border-white/20 hover:bg-white/20 active:bg-white/25'
+                }`}
+              >
+                {flash ? (
+                  <Zap className="w-5 h-5 text-white" strokeWidth={2.5} fill="white" />
+                ) : (
+                  <ZapOff className="w-5 h-5 text-white" strokeWidth={2.5} />
+                )}
+              </button>
 
-      <button
-        onClick={() => setGrid(!grid)}
-        className={`p-3.5 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] ${
-          grid 
-            ? 'bg-white/20 border-white/40' 
-            : 'bg-white/10 border-white/20 hover:bg-white/20'
-        }`}
-      >
-        <Grid3x3 className="w-5 h-5 text-white" strokeWidth={2.5} />
-      </button>
-    </div>
-  </div>
-</div>
-
-{/* Bottom Controls - dodaj przycisk zmiany kamery */}
-<div className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-safe p-6 sm:p-8 transition-all duration-700 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-  <div className="max-w-7xl mx-auto">
-    <div className="flex items-end justify-between">
-      {/* Galeria (lewo) */}
-      <button
-        onClick={() => router.push('/gallery')}
-        className="group relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/40 hover:border-white/60 transition-all duration-300 active:scale-95"
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
-          <ImageIcon className="w-6 h-6 text-white" strokeWidth={2} />
-        </div>
-      </button>
-
-      {/* Środek - przycisk zdjęcia */}
-      <button
-        onClick={handleCapture}
-        disabled={!isCameraReady}
-        className="group relative disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 active:scale-95 mb-2"
-      >
-        <div className="relative">
-          <div className="w-24 h-24 rounded-full border-4 border-white/40 flex items-center justify-center">
-            <div className="w-20 h-20 rounded-full bg-white group-hover:bg-slate-200 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.5)] group-hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] flex items-center justify-center">
-              <Camera className="w-10 h-10 text-black" strokeWidth={2.5} />
+              <button
+                onClick={() => setGrid(!grid)}
+                className={`p-3.5 rounded-full backdrop-blur-xl border transition-all duration-300 active:scale-95 min-w-[48px] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-white/50 ${
+                  grid 
+                    ? 'bg-white/20 border-white/40' 
+                    : 'bg-white/10 border-white/20 hover:bg-white/20 active:bg-white/25'
+                }`}
+              >
+                <Grid3x3 className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </button>
             </div>
           </div>
-          <div className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-20" />
         </div>
-      </button>
 
-      {/* Prawo - switch kamery */}
-      <button
-        onClick={switchCamera}
-        className="bg-white/10 hover:bg-white/20 backdrop-blur-xl p-3.5 rounded-full border border-white/20 transition-all duration-300 active:scale-95 min-w-[56px] min-h-[56px] flex items-center justify-center"
-      >
-        <RotateCcw className="w-6 h-6 text-white" strokeWidth={2.5} />
-      </button>
-    </div>
+        {/* Bottom Controls - WYŻEJ OD DOŁU */}
+        <div className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-safe px-6 sm:px-8 pb-24 sm:pb-32 transition-all duration-700 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-end justify-between">
+              {/* Galeria (lewo) */}
+              <button
+                onClick={() => router.push('/gallery')}
+                className="group relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/40 hover:border-white/60 active:border-white/70 transition-all duration-300 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
+                  <ImageIcon className="w-6 h-6 text-white" strokeWidth={2} />
+                </div>
+              </button>
 
-    {!isCameraReady && (
-      <div className="text-center mt-4">
-        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20">
-          <Loader2 className="w-4 h-4 text-white animate-spin" strokeWidth={2.5} />
-          <span className="text-white text-sm font-medium">Initializing...</span>
+              {/* Środek - przycisk zdjęcia */}
+              <button
+                onClick={handleCapture}
+                disabled={!isCameraReady}
+                className="group relative disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 active:scale-95 mb-2 focus:outline-none focus:ring-4 focus:ring-white/30"
+              >
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-white/40 flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-white group-hover:bg-slate-200 group-active:bg-slate-300 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.5)] group-hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] flex items-center justify-center">
+                      <Camera className="w-10 h-10 text-black" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-20" />
+                </div>
+              </button>
+
+              {/* Prawo - switch kamery */}
+              <button
+                onClick={switchCamera}
+                className="bg-white/10 hover:bg-white/20 active:bg-white/25 backdrop-blur-xl p-3.5 rounded-full border border-white/20 transition-all duration-300 active:scale-95 min-w-[56px] min-h-[56px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50"
+              >
+                <RotateCcw className="w-6 h-6 text-white" strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {!isCameraReady && (
+              <div className="text-center mt-4">
+                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20">
+                  <Loader2 className="w-4 h-4 text-white animate-spin" strokeWidth={2.5} />
+                  <span className="text-white text-sm font-medium">Initializing...</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    )}
-  </div>
-</div>
-
 
         {/* Preview Modal */}
         {capturedImage && (
@@ -360,12 +365,23 @@ export default function CameraPage() {
               />
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent pt-32 pb-safe pb-8 px-6">
+            {/* Success message */}
+            {uploadSuccess && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
+                <div className="bg-green-600 text-white px-8 py-4 rounded-2xl font-bold text-lg flex items-center gap-3 shadow-2xl">
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                  <span>Uploaded!</span>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons - WYŻEJ OD DOŁU */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent pt-32 pb-safe pb-20 sm:pb-24 px-6">
               <div className="max-w-md mx-auto flex gap-4">
                 <button
                   onClick={retakePhoto}
                   disabled={uploading}
-                  className="flex-1 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white px-6 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 border border-white/30 transition-all duration-300 active:scale-95 disabled:opacity-50 min-h-[64px] shadow-lg"
+                  className="flex-1 bg-white/10 hover:bg-white/20 active:bg-white/25 backdrop-blur-xl text-white px-6 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 border border-white/30 transition-all duration-300 active:scale-95 disabled:opacity-50 min-h-[64px] shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50"
                 >
                   <X className="w-6 h-6" strokeWidth={2.5} />
                   <span>Retake</span>
@@ -374,7 +390,7 @@ export default function CameraPage() {
                 <button
                   onClick={uploadPhoto}
                   disabled={uploading}
-                  className="flex-1 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white px-6 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(100,116,139,0.5)] hover:shadow-[0_0_60px_rgba(148,163,184,0.7)] transition-all duration-500 active:scale-95 disabled:opacity-50 min-h-[64px] border border-slate-500/50"
+                  className="flex-1 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 active:from-slate-400 active:to-slate-500 text-white px-6 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(100,116,139,0.5)] hover:shadow-[0_0_60px_rgba(148,163,184,0.7)] transition-all duration-500 active:scale-95 disabled:opacity-50 min-h-[64px] border border-slate-500/50 focus:outline-none focus:ring-2 focus:ring-slate-400/50"
                 >
                   {uploading ? (
                     <>
@@ -393,6 +409,22 @@ export default function CameraPage() {
           </div>
         )}
       </div>
+
+      {/* Global Styles */}
+      <style jsx global>{`
+        * {
+          -webkit-tap-highlight-color: transparent;
+        }
+        
+        button:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, 0.5);
+          outline-offset: 2px;
+        }
+        
+        button:active {
+          transform: scale(0.95);
+        }
+      `}</style>
     </div>
   )
 }

@@ -16,7 +16,7 @@ import {
   Shield,
   Activity,
   TrendingUp,
-  X,
+  X,  // <-- DODANE
   Check,
   Star,
   Lock,
@@ -24,6 +24,7 @@ import {
   EyeOff,
   AlertTriangle
 } from 'lucide-react'
+
 import { supabase, Photo } from '@/lib/supabase'
 
 interface Event {
@@ -41,7 +42,7 @@ interface Stats {
   todayPhotos: number
 }
 
-const ADMIN_PASSWORD = 'studniowka2026'
+const ADMIN_PASSWORD = 'zuziek'
 
 export default function AdminPage() {
   const [events, setEvents] = useState<Event[]>([])
@@ -79,15 +80,19 @@ export default function AdminPage() {
   }, [isAuthenticated])
 
   const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true)
-      localStorage.setItem('admin_auth', 'true')
-      setPassword('')
-    } else {
-      alert('❌ Incorrect password')
-      setPassword('')
-    }
+  console.log('Attempting login with password:', password) // Debug
+  console.log('Expected password:', ADMIN_PASSWORD) // Debug
+  
+  if (password.trim() === ADMIN_PASSWORD) {
+    setIsAuthenticated(true)
+    localStorage.setItem('admin_auth', 'true')
+    setPassword('')
+  } else {
+    alert('❌ Nieprawidłowe hasło!')
+    setPassword('')
   }
+}
+
 
   const handleLogout = () => {
     setIsAuthenticated(false)
@@ -322,50 +327,71 @@ export default function AdminPage() {
   }
 
   // Login Screen
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-6">
-        <div className="max-w-md w-full">
-          <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-8 sm:p-12 rounded-[32px] border border-slate-600/50 shadow-[0_16px_64px_rgba(15,23,42,0.6)]">
-            <div className="text-center mb-8">
-              <div className="inline-block bg-gradient-to-br from-slate-600 to-slate-700 p-4 rounded-2xl mb-4">
-                <Shield className="w-12 h-12 text-white" strokeWidth={2} />
-              </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
-              <p className="text-slate-400 text-sm">Enter password to continue</p>
+if (!isAuthenticated) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-6 relative">
+      
+      {/* Przycisk X - powrót */}
+      <button
+        onClick={() => router.push('/')}
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-600/80 backdrop-blur-xl text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-slate-600/50"
+      >
+        <X className="w-5 h-5 text-white" strokeWidth={2.5} />
+      </button>
+
+      <div className="max-w-md w-full">
+        <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-8 sm:p-12 rounded-[32px] border border-slate-600/50 shadow-[0_16px_64px_rgba(15,23,42,0.6)]">
+          <div className="text-center mb-8">
+            <div className="inline-block bg-gradient-to-br from-slate-600 to-slate-700 p-4 rounded-2xl mb-4">
+              <Shield className="w-12 h-12 text-white" strokeWidth={2} />
             </div>
+            <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
+            <p className="text-slate-400 text-sm">Enter password to continue</p>
+          </div>
 
-            <div className="space-y-4">
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                  placeholder="Enter admin password"
-                  className="w-full bg-slate-800/50 border border-slate-600/50 text-white px-5 py-4 rounded-2xl focus:outline-none focus:border-slate-400/70 focus:ring-2 focus:ring-slate-400/20 transition-all duration-300 placeholder:text-slate-500 pr-12"
-                />
-                <button
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-
+          <div className="space-y-4">
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLogin()
+                  }
+                }}
+                placeholder="Enter admin password"
+                autoComplete="off"
+                className="w-full bg-slate-800/50 border border-slate-600/50 text-white px-5 py-4 rounded-2xl focus:outline-none focus:border-slate-400/70 focus:ring-2 focus:ring-slate-400/20 transition-all duration-300 placeholder:text-slate-500 pr-12"
+              />
               <button
-                onClick={handleLogin}
-                className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-[0_0_40px_rgba(100,116,139,0.4)] hover:shadow-[0_0_60px_rgba(148,163,184,0.6)] transition-all duration-500 active:scale-95"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
               >
-                <Lock className="w-5 h-5 inline mr-2" />
-                Login
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+
+            <button
+              onClick={handleLogin}
+              className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 active:from-slate-400 active:to-slate-500 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-[0_0_40px_rgba(100,116,139,0.4)] hover:shadow-[0_0_60px_rgba(148,163,184,0.6)] transition-all duration-500 active:scale-95"
+            >
+              <Lock className="w-5 h-5 inline mr-2" />
+              Login
+            </button>
+          </div>
+          
+          {/* Hint */}
+          <div className="mt-6 text-center">
+            <p className="text-slate-500 text-xs">Hasło: studniowka2026</p>
           </div>
         </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
+
 
   if (loading) {
     return (
