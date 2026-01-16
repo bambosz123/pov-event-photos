@@ -174,8 +174,11 @@ export default function GalleryPage() {
                 key={photo.id} 
                 className="group relative bg-slate-800/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-slate-600/40 hover:border-slate-400/60 transition-all"
               >
-                {/* Obraz */}
-                <div className="aspect-square overflow-hidden bg-slate-900/50">
+                {/* Obraz - KLIKALNE */}
+                <div 
+                  className="aspect-square overflow-hidden bg-slate-900/50 cursor-pointer"
+                  onClick={() => setSelectedIndex(index)}
+                >
                   <img 
                     src={getPhotoUrl(photo.storage_path)} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
@@ -183,32 +186,27 @@ export default function GalleryPage() {
                   />
                 </div>
                 
-                {/* Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                  <div className="flex gap-2 w-full">
-                    <button
-                      onClick={() => setSelectedIndex(index)}
-                      className="flex-1 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white py-3 rounded-xl font-semibold text-sm"
+                {/* Overlay - ZAWSZE WIDOCZNE */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-2 flex items-end justify-end">
+                  {canDelete(photo) && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deletePhoto(photo)
+                      }} 
+                      className="bg-red-900/90 hover:bg-red-800 active:bg-red-700 backdrop-blur-md text-white px-2.5 py-1.5 rounded-lg transition-all duration-300 active:scale-95 flex items-center gap-1.5 text-xs font-semibold border border-red-700/50"
                     >
-                      Zobacz
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+                      <span>Usuń</span>
                     </button>
-                    
-                    {canDelete(photo) && (
-                      <button 
-                        onClick={() => deletePhoto(photo)} 
-                        className="bg-red-900/80 hover:bg-red-800 backdrop-blur-md text-white px-4 py-3 rounded-xl"
-                      >
-                        <Trash2 className="w-4 h-4" strokeWidth={2} />
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Badge */}
                 {canDelete(photo) && (
-                  <div className="absolute top-2 left-2 bg-slate-700/95 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-full font-semibold flex items-center gap-1.5">
-                    <Star className="w-3 h-3 fill-white" strokeWidth={2} />
-                    <span>Yours</span>
+                  <div className="absolute top-2 left-2 bg-slate-700/95 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 fill-white" strokeWidth={2} />
+                    <span className="text-[10px]">Yours</span>
                   </div>
                 )}
               </div>
