@@ -102,18 +102,25 @@ export default function HomePage() {
           <div className={`text-center mb-12 sm:mb-16 transition-all duration-1000 delay-100 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
             
             {/* Logo container z efektami */}
-            <div className="inline-block mb-6 sm:mb-8 relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-400/20 via-blue-400/15 to-slate-400/20 blur-[60px] rounded-full group-hover:blur-[80px] transition-all duration-1000 animate-pulse-slow"></div>
-              
-              <div className="relative bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-6 sm:p-8 rounded-[32px] border border-slate-600/60 shadow-[0_16px_64px_rgba(15,23,42,0.8)] group-hover:shadow-[0_24px_80px_rgba(100,116,139,0.4)] transition-all duration-700 group-hover:scale-105">
-                <div className="absolute inset-2 bg-gradient-to-br from-slate-700/20 to-transparent rounded-[28px]"></div>
-                
-                <Camera className="w-16 h-16 sm:w-20 sm:h-20 text-slate-200 relative z-10 drop-shadow-[0_4px_12px_rgba(226,232,240,0.3)]" strokeWidth={1.3} />
-                
-                <div className="absolute -inset-4 border border-slate-600/20 rounded-[40px] group-hover:scale-110 transition-transform duration-700"></div>
-                <div className="absolute -inset-6 border border-slate-600/10 rounded-[48px] group-hover:scale-125 transition-transform duration-1000"></div>
-              </div>
-            </div>
+            {/* Logo container z efektami */}
+<div className="inline-block mb-6 sm:mb-8 relative group">
+  <div className="absolute inset-0 bg-gradient-to-r from-slate-400/20 via-blue-400/15 to-slate-400/20 blur-[60px] rounded-full group-hover:blur-[80px] transition-all duration-1000 animate-pulse-slow"></div>
+  
+  <div className="relative bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-6 sm:p-8 rounded-[32px] border border-slate-600/60 shadow-[0_16px_64px_rgba(15,23,42,0.8)] group-hover:shadow-[0_24px_80px_rgba(100,116,139,0.4)] transition-all duration-700 group-hover:scale-105">
+    <div className="absolute inset-2 bg-gradient-to-br from-slate-700/20 to-transparent rounded-[28px]"></div>
+    
+    {/* TWOJE LOGO */}
+    <img 
+      src="/logo.png" 
+      alt="Logo Studniówki" 
+      className="w-24 h-24 sm:w-32 sm:h-32 relative z-10 object-contain drop-shadow-[0_8px_24px_rgba(255,255,255,0.2)] transition-transform group-hover:scale-110 duration-500"
+    />
+    
+    <div className="absolute -inset-4 border border-slate-600/20 rounded-[40px] group-hover:scale-110 transition-transform duration-700"></div>
+    <div className="absolute -inset-6 border border-slate-600/10 rounded-[48px] group-hover:scale-125 transition-transform duration-1000"></div>
+  </div>
+</div>
+
             
             {/* Tytuł z animowanym gradientem */}
             <div className="relative mb-6 sm:mb-8">
