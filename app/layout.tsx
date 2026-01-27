@@ -5,21 +5,16 @@ import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'Galeria Studniówka 2026',
   description: 'Galeria zdjęć ze studniówki 2026',
-  manifest: '/manifest.json',
-  themeColor: '#0f172a',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Studniówka 2026'
-  },
+  manifest: '/manifest.json',  // ← DODAJ TĘ LINIĘ
   icons: {
-    icon: '/favicon.ico',
-    apple: '/icon-192x192.png'
-  }
+    icon: '/icon-192x192.png',
+    apple: '/icon-192x192.png',
+  },
 }
+
 
 export const viewport: Viewport = {
   width: 'device-width',
