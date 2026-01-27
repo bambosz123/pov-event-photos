@@ -111,10 +111,10 @@ export default function HomePage() {
     
     {/* TWOJE LOGO */}
     <img 
-      src="/logo.png" 
-      alt="Logo Studniówki" 
-      className="w-24 h-24 sm:w-32 sm:h-32 relative z-10 object-contain drop-shadow-[0_8px_24px_rgba(255,255,255,0.2)] transition-transform group-hover:scale-110 duration-500"
-    />
+  src="/icon.png"    // ← ZMIEŃ TUTAJ!
+  alt="Logo Studniówki" 
+  className="w-24 h-24 sm:w-32 sm:h-32 relative z-10 object-contain drop-shadow-[0_8px_24px_rgba(255,255,255,0.2)] transition-transform group-hover:scale-110 duration-500"
+/>
     
     <div className="absolute -inset-4 border border-slate-600/20 rounded-[40px] group-hover:scale-110 transition-transform duration-700"></div>
     <div className="absolute -inset-6 border border-slate-600/10 rounded-[48px] group-hover:scale-125 transition-transform duration-1000"></div>
