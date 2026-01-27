@@ -10,15 +10,16 @@ export const metadata = {
   description: 'Galeria zdjęć ze studniówki 2026',
   manifest: '/manifest.json',
   icons: {
-    icon: '/icon.png',
-    apple: '/apple-icon.png',
+    icon: '/studniowka-icon.png',
+    apple: '/studniowka-apple.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Studniówka',
+    title: 'Studniówka 2026',
   },
 }
+
 
 
 export const viewport: Viewport = {

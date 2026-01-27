@@ -109,9 +109,8 @@ export default function HomePage() {
   <div className="relative bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 backdrop-blur-2xl p-6 sm:p-8 rounded-[32px] border border-slate-600/60 shadow-[0_16px_64px_rgba(15,23,42,0.8)] group-hover:shadow-[0_24px_80px_rgba(100,116,139,0.4)] transition-all duration-700 group-hover:scale-105">
     <div className="absolute inset-2 bg-gradient-to-br from-slate-700/20 to-transparent rounded-[28px]"></div>
     
-    {/* TWOJE LOGO */}
-    <img 
-  src="/icon.png"    // ← ZMIEŃ TUTAJ!
+   <img 
+  src="/studniowka-icon.png"
   alt="Logo Studniówki" 
   className="w-24 h-24 sm:w-32 sm:h-32 relative z-10 object-contain drop-shadow-[0_8px_24px_rgba(255,255,255,0.2)] transition-transform group-hover:scale-110 duration-500"
 />
