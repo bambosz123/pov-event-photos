@@ -8,10 +8,15 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata = {
   title: 'Galeria Studniówka 2026',
   description: 'Galeria zdjęć ze studniówki 2026',
-  manifest: '/manifest.json',  // ← DODAJ TĘ LINIĘ
+  manifest: '/manifest.json',
   icons: {
-    icon: '/icon-192x192.png',
-    apple: '/icon-192x192.png',
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Studniówka',
   },
 }
 
